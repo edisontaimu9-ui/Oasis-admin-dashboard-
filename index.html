@@ -1183,7 +1183,7 @@ body.bg-aurora::before {
     <div class="sp-dot"></div><div class="sp-dot"></div><div class="sp-dot"></div>
   </div>
   <div class="sp-subtitle">Clinical Nutrition Decision Support Tool</div>
-  <div class="sp-version" id="sp-version-text">Admin v1.1.1</div>
+  <div class="sp-version" id="sp-version-text">Admin 1.1.4</div>
   <div class="sp-by-line">By Edison Taimu · KUHeS</div>
   <div class="sp-tag">Admin Console</div>
   <div class="sp-glow-line"></div>
@@ -1291,7 +1291,7 @@ body.bg-aurora::before {
       <div class="nav-group-label">System</div>
       <div class="nav-item"        id="nav-settings"   onclick="switchTab('settings')">   <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
       <div class="sidebar-footer">
-        <div class="sidebar-info" id="sidebar-db-info">🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 v1.1.1 · Apr 2026 · Apr 2026</div>
+        <div class="sidebar-info" id="sidebar-db-info">🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 1.1.4 · Apr 2026 · Apr 2026</div>
       </div>
     </nav>
 
@@ -1589,7 +1589,7 @@ body.bg-aurora::before {
                 <div class="stg-info-row"><span class="stat-key">Storage</span><span class="stat-val" style="font-size:9px">Cloud Firestore</span></div>
                 <div class="stg-info-row"><span class="stat-key">Project</span><span class="stat-val">nutri-track-pro-c11c5</span></div>
                 <div class="stg-info-row"><span class="stat-key">Status</span><span class="stat-val"><span class="badge badge-teal" id="set-db-status">● Firestore Live</span></span></div>
-                <div class="stg-info-row"><span class="stat-key">Version</span><span class="stat-val">v1.1.1 · April 2026</span></div>
+                <div class="stg-info-row"><span class="stat-key">Version</span><span class="stat-val">1.1.4 · April 2026</span></div>
                 <div class="stg-info-row"><span class="stat-key">Environment</span><span class="stat-val"><span class="badge badge-teal">Cloud · Firebase</span></span></div>
               </div>
             </div>
@@ -1614,7 +1614,7 @@ body.bg-aurora::before {
             <div class="upd-mgr-card">
               <div class="upd-mgr-hdr">
                 📦 App Update Manager
-                <span class="upd-ver-badge">v1.1.1</span>
+                <span class="upd-ver-badge">1.1.4</span>
                 <span class="upd-date-badge">April 2026</span>
               </div>
 
@@ -2178,7 +2178,7 @@ function setDbStatus(state) {
     if (txt) txt.textContent = 'Firestore';
     if (pill) { pill.style.borderColor = 'rgba(29,233,212,0.4)'; pill.style.color = 'var(--teal)'; }
     if (sett) { sett.textContent = '● Firestore Live'; sett.className = 'badge badge-teal'; }
-    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Real-time<br>🛢 RTDB · Presence + Updates<br>🛡 Auth · Admin<br>📦 v1.1.1 · Apr 2026 · Apr 2026';
+    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Real-time<br>🛢 RTDB · Presence + Updates<br>🛡 Auth · Admin<br>📦 1.1.4 · Apr 2026 · Apr 2026';
     if (sysBadge) { sysBadge.className = 'sys-badge ok'; }
     if (sysDbTxt) sysDbTxt.textContent = 'Cloud Firestore';
     if (sysBadgeStatus) { sysBadgeStatus.className = 'sys-badge ok'; }
@@ -2187,7 +2187,7 @@ function setDbStatus(state) {
     if (dot) { dot.style.background = 'var(--amber)'; dot.style.animation = 'pulse-dot 1s infinite'; }
     if (txt) txt.textContent = 'Connecting…';
     if (sett) { sett.textContent = '⏳ Connecting'; sett.className = 'badge badge-amber'; }
-    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 v1.1.1 · Apr 2026 · Apr 2026';
+    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 1.1.4 · Apr 2026 · Apr 2026';
     if (sysBadgeStatus && sysStatusTxt) { sysBadgeStatus.className = 'sys-badge warn'; sysStatusTxt.textContent = 'Connecting to Firestore…'; }
     if (sysBadge && sysDbTxt) { sysBadge.className = 'sys-badge warn'; sysDbTxt.textContent = 'Cloud Firestore'; }
   } else {
@@ -2196,7 +2196,7 @@ function setDbStatus(state) {
     if (txt) txt.textContent = 'Error';
     if (pill) { pill.style.borderColor = 'rgba(251,113,133,0.4)'; pill.style.color = 'var(--red)'; }
     if (sett) { sett.textContent = '✗ Firestore Error'; sett.className = 'badge badge-red'; }
-    if (sbInfo) sbInfo.innerHTML = '🔴 Firestore · Unavailable<br>🛡 Auth · Admin<br>📦 v1.1.1 · Apr 2026 · Apr 2026';
+    if (sbInfo) sbInfo.innerHTML = '🔴 Firestore · Unavailable<br>🛡 Auth · Admin<br>📦 1.1.4 · Apr 2026 · Apr 2026';
     if (sysBadge) { sysBadge.className = 'sys-badge err'; }
     if (sysDbTxt) sysDbTxt.textContent = 'Firestore Error';
     if (sysBadgeStatus) { sysBadgeStatus.className = 'sys-badge err'; }
@@ -3470,7 +3470,7 @@ setTimeout(_dismissSplash, 2600);
 /* ═══════════════════════════════════════════════════════════
    VERSION CONSTANTS
 ═══════════════════════════════════════════════════════════ */
-const ADMIN_VERSION      = 'v1.1.2';
+const ADMIN_VERSION      = '1.1.4';
 const ADMIN_VERSION_DATE = 'April 2026';
 
 // Sync splash version text with the constant — update only ADMIN_VERSION above on each deploy
