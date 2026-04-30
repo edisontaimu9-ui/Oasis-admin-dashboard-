@@ -17,6 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Barlow:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Nunito:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- Firebase SDK (compat — same version as NutriTrack Pro main app) -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -47,6 +48,7 @@
   --header-h:  48px;
   --statusbar-h: 36px;
   --tabnav-h:  44px;
+  --bottomnav-h: 56px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
@@ -266,8 +268,52 @@ body { font-family: var(--sans); background: var(--bg); color: var(--text); min-
   min-width: 16px; text-align: center;
 }
 /* Shift dashboard body down to account for tab nav */
-.dashboard-body { display: flex; flex: 1; overflow: hidden; height: calc(100vh - var(--header-h) - var(--statusbar-h) - var(--tabnav-h)); }
+.dashboard-body { display: flex; flex: 1; overflow: hidden; height: calc(100vh - var(--header-h) - var(--statusbar-h) - var(--tabnav-h) - var(--bottomnav-h)); }
 .sidebar-info { font-family: var(--mono); font-size: 8px; color: var(--text-muted); letter-spacing: 0.5px; line-height: 2; padding: 4px 6px; }
+
+/* ── BOTTOM TAB NAV ── */
+.bottom-tab-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: var(--bottomnav-h);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 200;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.28);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.btn-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+  border-top: 2px solid transparent;
+  transition: color .15s, border-color .15s, background .15s;
+  position: relative;
+  padding: 6px 4px 4px;
+}
+.btn-item:hover { color: var(--text); background: rgba(255,255,255,0.02); }
+.btn-item.active { color: var(--teal); border-top-color: var(--teal); background: rgba(29,233,212,0.04); }
+.btn-icon { font-size: 18px; line-height: 1; }
+.btn-label { font-family: var(--mono); font-size: 8px; letter-spacing: 0.5px; }
+.btn-badge {
+  position: absolute;
+  top: 5px; right: calc(50% - 18px);
+  font-family: var(--mono); font-size: 7px; font-weight: 700;
+  padding: 1px 4px; border-radius: 99px;
+  background: rgba(29,233,212,0.22); color: var(--teal);
+  min-width: 14px; text-align: center;
+  pointer-events: none;
+}
 
 /* ── CONTENT AREA ── */
 .content-area { flex: 1; overflow-y: auto; padding: 28px 32px; background: var(--bg); }
@@ -1223,21 +1269,6 @@ body.bg-aurora::before {
     <div class="ttn-item active" id="ttn-home" onclick="switchTab('home')">
       <span class="ttn-icon">🏠</span> Home
     </div>
-    <div class="ttn-item" id="ttn-analytics" onclick="switchTab('analytics')">
-      <span class="ttn-icon">📈</span> Analytics
-    </div>
-    <div class="ttn-item" id="ttn-sessions-online" onclick="switchTab('sessions')">
-      <span class="ttn-icon">👤</span> Online
-      <span class="ttn-badge" id="ttn-badge-online">—</span>
-    </div>
-    <div class="ttn-item" id="ttn-sessions-tab" onclick="switchTab('sessions')">
-      <span class="ttn-icon">📋</span> Sessions
-      <span class="ttn-badge" id="ttn-badge-sessions">—</span>
-    </div>
-    <div class="ttn-item" id="ttn-feedback" onclick="switchTab('feedback')">
-      <span class="ttn-icon">💬</span> Feedback
-      <span class="ttn-badge" id="ttn-badge-feedback">—</span>
-    </div>
     <div class="ttn-item" id="ttn-settings" onclick="switchTab('settings')">
       <span class="ttn-icon">⚙️</span> Settings
     </div>
@@ -1260,7 +1291,7 @@ body.bg-aurora::before {
       <div class="nav-group-label">System</div>
       <div class="nav-item"        id="nav-settings"   onclick="switchTab('settings')">   <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
       <div class="sidebar-footer">
-        <div class="sidebar-info" id="sidebar-db-info">🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 v1.0.1 · Apr 2026 · Apr 2026</div>
+        <div class="sidebar-info" id="sidebar-db-info">🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 v1.1.0 · Apr 2026 · Apr 2026</div>
       </div>
     </nav>
 
@@ -1554,7 +1585,7 @@ body.bg-aurora::before {
                 <div class="stg-info-row"><span class="stat-key">Storage</span><span class="stat-val" style="font-size:9px">Cloud Firestore</span></div>
                 <div class="stg-info-row"><span class="stat-key">Project</span><span class="stat-val">nutri-track-pro-c11c5</span></div>
                 <div class="stg-info-row"><span class="stat-key">Status</span><span class="stat-val"><span class="badge badge-teal" id="set-db-status">● Firestore Live</span></span></div>
-                <div class="stg-info-row"><span class="stat-key">Version</span><span class="stat-val">v1.0.1 · April 2026</span></div>
+                <div class="stg-info-row"><span class="stat-key">Version</span><span class="stat-val">v1.1.0 · April 2026</span></div>
                 <div class="stg-info-row"><span class="stat-key">Environment</span><span class="stat-val"><span class="badge badge-teal">Cloud · Firebase</span></span></div>
               </div>
             </div>
@@ -1572,8 +1603,6 @@ body.bg-aurora::before {
                   <span><span style="color:var(--amber)">■</span> Heartbeat</span>
                 </div>
               </div>
-              <div class="stg-card-hdr" style="border-top:1px solid var(--border)">📊 Module Breakdown</div>
-              <div style="padding:6px 14px 10px" id="set-module-breakdown"><div class="stat-row"><span class="stat-key">Loading…</span><span class="stat-val">—</span></div></div>
             </div>
 
 
@@ -1581,7 +1610,7 @@ body.bg-aurora::before {
             <div class="upd-mgr-card">
               <div class="upd-mgr-hdr">
                 📦 App Update Manager
-                <span class="upd-ver-badge">v1.0.1</span>
+                <span class="upd-ver-badge">v1.1.0</span>
                 <span class="upd-date-badge">April 2026</span>
               </div>
 
@@ -1619,6 +1648,30 @@ body.bg-aurora::before {
 
       </div><!-- /settings -->
   </div><!-- /dashboard-body -->
+
+  <!-- BOTTOM TAB NAV — Analytics, Online, Sessions, Feedback -->
+  <nav class="bottom-tab-nav" id="bottom-tab-nav">
+    <div class="btn-item" id="btn-analytics" onclick="switchTab('analytics')">
+      <span class="btn-icon">📈</span>
+      <span class="btn-label">ANALYTICS</span>
+    </div>
+    <div class="btn-item" id="btn-online" onclick="switchTab('sessions')">
+      <span class="btn-icon">👤</span>
+      <span class="btn-label">ONLINE</span>
+      <span class="btn-badge" id="ttn-badge-online">—</span>
+    </div>
+    <div class="btn-item" id="btn-sessions" onclick="switchTab('sessions')">
+      <span class="btn-icon">📋</span>
+      <span class="btn-label">SESSIONS</span>
+      <span class="btn-badge" id="ttn-badge-sessions">—</span>
+    </div>
+    <div class="btn-item" id="btn-feedback" onclick="switchTab('feedback')">
+      <span class="btn-icon">💬</span>
+      <span class="btn-label">FEEDBACK</span>
+      <span class="btn-badge" id="ttn-badge-feedback">—</span>
+    </div>
+  </nav>
+
 </div><!-- /app -->
 
 <div id="toast"></div>
@@ -1636,6 +1689,7 @@ body.bg-aurora::before {
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyDLdoWCGmuwEwuPLwijnoRyRP7sWtGc-Qc",
   authDomain:        "nutri-track-pro-c11c5.firebaseapp.com",
+  databaseURL:       "https://nutri-track-pro-c11c5-default-rtdb.firebaseio.com",
   projectId:         "nutri-track-pro-c11c5",
   storageBucket:     "nutri-track-pro-c11c5.firebasestorage.app",
   messagingSenderId: "1046053514584",
@@ -1645,6 +1699,16 @@ const FIREBASE_CONFIG = {
 
 /** Global Firestore instance — set by initFirestoreListeners() */
 let db = null;
+
+/** Global Realtime Database instance — set by initFirestoreListeners() */
+let rtdb = null;
+
+/**
+ * In-memory mirror of /presence in RTDB.
+ * Keyed by presence node ID (same _pid used by main app).
+ * Used to augment allPresence with accurate online/offline state.
+ */
+let _rtdbPresence = {};
 
 /* ═══════════════════════════════════════════════════════════
    ADMIN CREDENTIALS
@@ -1791,6 +1855,12 @@ function initFirestoreListeners() {
       firebase.initializeApp(FIREBASE_CONFIG);
     }
     db = firebase.firestore();
+
+    // ── Realtime Database init ─────────────────────────────────────
+    rtdb = firebase.database();
+    console.log('[Admin] RTDB initialised — attaching presence listener');
+    _attachRTDBListeners();
+
   } catch (err) {
     console.error('[Admin] Firebase init failed:', err);
     setDbStatus('error');
@@ -1879,6 +1949,108 @@ function _attachFirestoreListeners() {
       _showConnectionError('Could not reach Firestore after 12 seconds. Check network connectivity and Firebase project status.');
     }
   }, 12000);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RTDB LISTENERS — presence (accurate state) + app_version
+   Augments Firestore data with RTDB's onDisconnect-backed
+   online/offline signals. RTDB updates are instant; Firestore
+   heartbeats lag by up to 30s.
+═══════════════════════════════════════════════════════════ */
+
+function _attachRTDBListeners() {
+  if (!rtdb) return;
+
+  // ── 1. PRESENCE — /presence value listener ─────────────────
+  // Fires on every write from any NTP client (online / offline / heartbeat).
+  // We merge these into allPresence so KPIs and the Live Users table
+  // reflect RTDB's onDisconnect accuracy rather than Firestore polling lag.
+  rtdb.ref('/presence').on('value', (snap) => {
+    _rtdbPresence = snap.val() || {};
+    _mergeRTDBPresence();
+    _updatePresenceKPIs();
+    _renderLiveUsersTable();
+  }, (err) => {
+    console.warn('[Admin] RTDB presence listener error:', err);
+  });
+
+  // ── 2. /system/app_version — confirm push reached RTDB ─────
+  // Admin writes here in pushUpdateToNTP(); this read-back confirms
+  // the RTDB write succeeded and logs the current live version.
+  rtdb.ref('/system/app_version').on('value', (snap) => {
+    const v = snap.val();
+    if (v?.version) {
+      console.log('[Admin] RTDB app_version confirmed:', v.version, '—', v.releasedAt);
+    }
+  });
+}
+
+/**
+ * Merge _rtdbPresence into allPresence (Firestore-sourced array).
+ *
+ * Rules:
+ *  - RTDB state='online' : upsert entry into allPresence (add if missing,
+ *    update lastSeen + state on existing match).
+ *  - RTDB state='offline': remove the matching entry from allPresence —
+ *    the user has definitively disconnected (onDisconnect guarantee).
+ *
+ * Timestamp normalisation:
+ *  RTDB last_changed is epoch ms (number).
+ *  allPresence entries use Firestore Timestamp objects with .toDate().
+ *  We wrap RTDB timestamps in a shim so _updatePresenceKPIs() and
+ *  _renderLiveUsersTable() work without changes.
+ */
+function _mergeRTDBPresence() {
+  const now = Date.now();
+
+  Object.entries(_rtdbPresence).forEach(([pid, entry]) => {
+    if (!entry) return;
+
+    const isOnline = entry.state === 'online';
+
+    // Find matching Firestore presence entry by pid, or by sessionId
+    const idx = allPresence.findIndex(
+      p => p.id === pid || p.userId === pid ||
+          (entry.sessionId && p.sessionId === entry.sessionId)
+    );
+
+    if (!isOnline) {
+      // onDisconnect fired — remove from live list
+      if (idx !== -1) allPresence.splice(idx, 1);
+      return;
+    }
+
+    // Shim: wrap RTDB numeric timestamp so existing code using .toDate() works
+    const _ts_shim = (ms) => ({
+      toDate: () => new Date(ms || now),
+      _rtdb:  true,
+    });
+
+    const normalized = {
+      id:             pid,
+      userId:         pid,
+      sessionId:      entry.sessionId      || pid,
+      institution:    entry.institution    || '',
+      institutionCat: entry.institutionCat || '',
+      ward:           entry.ward           || '',
+      activeModule:   entry.activeModule   || '',
+      calcCount:      entry.calcCount      || 0,
+      userName:       entry.userName       || '',
+      userRole:       entry.userRole       || '',
+      userUid:        entry.userUid        || '',
+      deviceInfo:     entry.deviceInfo     || '',
+      lastSeen:       _ts_shim(entry.last_changed),
+      _fromRTDB:      true,
+    };
+
+    if (idx !== -1) {
+      // Update existing entry — prefer RTDB's freshly-stamped lastSeen
+      allPresence[idx] = { ...allPresence[idx], ...normalized };
+    } else {
+      // New RTDB-only entry (client registered before Firestore heartbeat fired)
+      allPresence.push(normalized);
+    }
+  });
 }
 
 /** Called each time one of the main listeners fires for the first time */
@@ -2002,7 +2174,7 @@ function setDbStatus(state) {
     if (txt) txt.textContent = 'Firestore';
     if (pill) { pill.style.borderColor = 'rgba(29,233,212,0.4)'; pill.style.color = 'var(--teal)'; }
     if (sett) { sett.textContent = '● Firestore Live'; sett.className = 'badge badge-teal'; }
-    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Real-time<br>🛡 Auth · Admin<br>📦 v1.0.1 · Apr 2026 · Apr 2026';
+    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Real-time<br>🛢 RTDB · Presence + Updates<br>🛡 Auth · Admin<br>📦 v1.1.0 · Apr 2026 · Apr 2026';
     if (sysBadge) { sysBadge.className = 'sys-badge ok'; }
     if (sysDbTxt) sysDbTxt.textContent = 'Cloud Firestore';
     if (sysBadgeStatus) { sysBadgeStatus.className = 'sys-badge ok'; }
@@ -2011,7 +2183,7 @@ function setDbStatus(state) {
     if (dot) { dot.style.background = 'var(--amber)'; dot.style.animation = 'pulse-dot 1s infinite'; }
     if (txt) txt.textContent = 'Connecting…';
     if (sett) { sett.textContent = '⏳ Connecting'; sett.className = 'badge badge-amber'; }
-    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 v1.0.1 · Apr 2026 · Apr 2026';
+    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 v1.1.0 · Apr 2026 · Apr 2026';
     if (sysBadgeStatus && sysStatusTxt) { sysBadgeStatus.className = 'sys-badge warn'; sysStatusTxt.textContent = 'Connecting to Firestore…'; }
     if (sysBadge && sysDbTxt) { sysBadge.className = 'sys-badge warn'; sysDbTxt.textContent = 'Cloud Firestore'; }
   } else {
@@ -2020,7 +2192,7 @@ function setDbStatus(state) {
     if (txt) txt.textContent = 'Error';
     if (pill) { pill.style.borderColor = 'rgba(251,113,133,0.4)'; pill.style.color = 'var(--red)'; }
     if (sett) { sett.textContent = '✗ Firestore Error'; sett.className = 'badge badge-red'; }
-    if (sbInfo) sbInfo.innerHTML = '🔴 Firestore · Unavailable<br>🛡 Auth · Admin<br>📦 v1.0.1 · Apr 2026 · Apr 2026';
+    if (sbInfo) sbInfo.innerHTML = '🔴 Firestore · Unavailable<br>🛡 Auth · Admin<br>📦 v1.1.0 · Apr 2026 · Apr 2026';
     if (sysBadge) { sysBadge.className = 'sys-badge err'; }
     if (sysDbTxt) sysDbTxt.textContent = 'Firestore Error';
     if (sysBadgeStatus) { sysBadgeStatus.className = 'sys-badge err'; }
@@ -2162,20 +2334,6 @@ function _updateStatsUI() {
   _set('ov-top-calc-sub',    topCount + ' calculations');
   _set('set-top-module',     topMod.charAt(0).toUpperCase() + topMod.slice(1));
   _set('set-top-module-sub', topCount + ' uses');
-
-  // Module breakdown in settings
-  const mbEl = document.getElementById('set-module-breakdown');
-  if (mbEl) {
-    const mods = Object.entries(globalStats)
-      .filter(([k]) => k.startsWith('module_'))
-      .map(([k, v]) => [k.replace('module_', ''), v])
-      .sort((a, b) => b[1] - a[1]);
-    if (mods.length) {
-      mbEl.innerHTML = mods.map(([m, c]) =>
-        `<div class="stat-row"><span class="stat-key">${m.charAt(0).toUpperCase()+m.slice(1)}</span><span class="stat-val" style="color:var(--teal)">${c} calcs</span></div>`
-      ).join('');
-    }
-  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2473,19 +2631,28 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('.ttn-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.btn-item').forEach(n => n.classList.remove('active'));
   document.getElementById('tab-' + tab)?.classList.add('active');
   document.getElementById('nav-' + tab)?.classList.add('active');
-  // Sync top tab nav — map tabs to ttn ids
+
+  // ── Top tab nav (Home + Settings) ─────────────────────────────
   const ttnMap = {
     home: 'ttn-home',
-    analytics: 'ttn-analytics',
-    sessions: ['ttn-sessions-online','ttn-sessions-tab'],
-    feedback: 'ttn-feedback',
-    settings: 'ttn-settings'
+    settings: 'ttn-settings',
   };
   const ttnTarget = ttnMap[tab];
-  if (Array.isArray(ttnTarget)) ttnTarget.forEach(id => document.getElementById(id)?.classList.add('active'));
-  else if (ttnTarget) document.getElementById(ttnTarget)?.classList.add('active');
+  if (ttnTarget) document.getElementById(ttnTarget)?.classList.add('active');
+
+  // ── Bottom tab nav (Analytics, Online, Sessions, Feedback) ────
+  const btnMap = {
+    analytics: 'btn-analytics',
+    sessions:  ['btn-online', 'btn-sessions'],
+    feedback:  'btn-feedback',
+  };
+  const btnTarget = btnMap[tab];
+  if (Array.isArray(btnTarget)) btnTarget.forEach(id => document.getElementById(id)?.classList.add('active'));
+  else if (btnTarget) document.getElementById(btnTarget)?.classList.add('active');
+
   const labels = { home:'Home', overview:'Overview', analytics:'Analytics', sessions:'Sessions', feedback:'Feedback', settings:'Settings' };
   document.getElementById('content-title').textContent = labels[tab] || tab;
 
@@ -3221,7 +3388,7 @@ setTimeout(_dismissSplash, 2600);
 /* ═══════════════════════════════════════════════════════════
    VERSION CONSTANTS
 ═══════════════════════════════════════════════════════════ */
-const ADMIN_VERSION      = 'v1.0.1';
+const ADMIN_VERSION      = 'v1.1.0';
 const ADMIN_VERSION_DATE = 'April 2026';
 
 /* ═══════════════════════════════════════════════════════════
@@ -3358,6 +3525,7 @@ async function pushUpdateToNTP() {
 
   let firestoreOk = false;
   let broadcastOk = false;
+  let rtdbOk      = false;
 
   // ── A: Firestore ────────────────────────────────────────────────────
   if (db) {
@@ -3383,10 +3551,31 @@ async function pushUpdateToNTP() {
     _pushLog(log, 'warn', '⚠ BroadcastChannel not supported: ' + err.message);
   }
 
+  // ── C: RTDB — instant signal via onValue listener in main app ───────
+  if (rtdb) {
+    try {
+      await rtdb.ref('/system/app_version').set({
+        ...payload,
+        pushedAt: firebase.database.ServerValue.TIMESTAMP,
+      });
+      rtdbOk = true;
+      _pushLog(log, 'ok', '✓ RTDB · /system/app_version updated — main app listeners will fire instantly.');
+    } catch (err) {
+      _pushLog(log, 'warn', '⚠ RTDB write failed: ' + err.message);
+    }
+  } else {
+    _pushLog(log, 'warn', '⚠ RTDB offline — channel C skipped.');
+  }
+
   // ── Summary ─────────────────────────────────────────────────────────
-  if (firestoreOk || broadcastOk) {
+  if (firestoreOk || broadcastOk || rtdbOk) {
+    const channels = [
+      firestoreOk  ? 'Firestore'       : null,
+      broadcastOk  ? 'BroadcastChannel': null,
+      rtdbOk       ? 'RTDB'            : null,
+    ].filter(Boolean).join(' + ');
     _pushLog(log, 'ok',
-      `✓ Update v${version} pushed. NTP clients will prompt users on next load or tab focus.`);
+      `✓ Update v${version} pushed via ${channels}. NTP clients will prompt users on next load or tab focus.`);
     showToast(`Update v${version} pushed to NutriTrack Pro ✓`);
     // Clear inputs after success
     versionInput.value = '';
