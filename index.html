@@ -1183,7 +1183,7 @@ body.bg-aurora::before {
     <div class="sp-dot"></div><div class="sp-dot"></div><div class="sp-dot"></div>
   </div>
   <div class="sp-subtitle">Clinical Nutrition Decision Support Tool</div>
-  <div class="sp-version">Version 1.0.1</div>
+  <div class="sp-version" id="sp-version-text">Admin v1.1.1</div>
   <div class="sp-by-line">By Edison Taimu · KUHeS</div>
   <div class="sp-tag">Admin Console</div>
   <div class="sp-glow-line"></div>
@@ -1429,7 +1429,10 @@ body.bg-aurora::before {
       <div class="tab-pane" id="tab-feedback">
         <div class="content-header">
           <div class="page-title">Feedback <span id="fb-count-label"></span></div>
-          <button class="btn btn-teal" onclick="exportFeedbackCSV()">⬇ Export CSV</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-teal" onclick="exportFeedbackCSV()">⬇ Export CSV</button>
+            <button class="btn" style="background:rgba(220,53,69,.15);color:#ff6b6b;border:1px solid rgba(220,53,69,.35)" onclick="deleteAllFeedback()">🗑 Delete All</button>
+          </div>
         </div>
         <div class="section-hdr"><span class="section-title">Reaction Summary</span><div class="section-line"></div></div>
         <div class="fb-emoji-summary">
@@ -2481,6 +2484,25 @@ async function deleteFeedback(docId) {
   }
 }
 
+async function deleteAllFeedback() {
+  if (!allFeedback.length) return;
+  if (!confirm(`Permanently delete ALL ${allFeedback.length} feedback submission(s)? This cannot be undone.`)) return;
+  showToast(`Deleting ${allFeedback.length} feedback item(s)…`, 'info');
+  let ok = 0, fail = 0;
+  const BATCH_SIZE = 400;
+  const targets = [...allFeedback];
+  for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+    const chunk = targets.slice(i, i + BATCH_SIZE);
+    const batch = db.batch();
+    chunk.forEach(f => batch.delete(db.collection('feedback').doc(f.id)));
+    try { await batch.commit(); ok += chunk.length; }
+    catch (e) { fail += chunk.length; showToast('Batch error: ' + e.message, 'error'); }
+  }
+  allFeedback = allFeedback.filter(f => !targets.find(t => t.id === f.id));
+  _renderFeedback();
+  showToast(`Deleted ${ok} feedback item(s)${fail ? ` · ${fail} failed` : ''}.`, fail ? 'error' : 'success');
+}
+
 /* ═══════════════════════════════════════════════════════════
    FEEDBACK
 ═══════════════════════════════════════════════════════════ */
@@ -3448,8 +3470,14 @@ setTimeout(_dismissSplash, 2600);
 /* ═══════════════════════════════════════════════════════════
    VERSION CONSTANTS
 ═══════════════════════════════════════════════════════════ */
-const ADMIN_VERSION      = 'v1.1.1';
+const ADMIN_VERSION      = 'v1.1.2';
 const ADMIN_VERSION_DATE = 'April 2026';
+
+// Sync splash version text with the constant — update only ADMIN_VERSION above on each deploy
+(function() {
+  const el = document.getElementById('sp-version-text');
+  if (el) el.textContent = 'Admin ' + ADMIN_VERSION;
+})();
 
 /* ═══════════════════════════════════════════════════════════
    ADMIN SELF-UPDATE  — Service Worker update detection
