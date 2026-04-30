@@ -2454,24 +2454,31 @@ async function deleteAllSessions() {
   if (!confirm(`Permanently delete ${label}? This cannot be undone.`)) return;
   showToast(`Deleting ${targets.length} session(s)…`, 'info');
   let ok = 0, fail = 0;
-  // Firestore batch max = 500 docs
   const BATCH_SIZE = 400;
   for (let i = 0; i < targets.length; i += BATCH_SIZE) {
     const chunk = targets.slice(i, i + BATCH_SIZE);
     const batch = db.batch();
     chunk.forEach(s => batch.delete(db.collection('sessions').doc(s.id)));
-    try {
-      await batch.commit();
-      ok += chunk.length;
-    } catch (e) {
-      fail += chunk.length;
-      showToast('Batch error: ' + e.message, 'error');
-    }
+    try { await batch.commit(); ok += chunk.length; }
+    catch (e) { fail += chunk.length; showToast('Batch error: ' + e.message, 'error'); }
   }
   allSessions = allSessions.filter(s => !targets.find(t => t.id === s.id));
   _renderSessionsTable();
   _updateSessionsKPIs();
   showToast(`Deleted ${ok} session(s)${fail ? ` · ${fail} failed` : ''}.`, fail ? 'error' : 'success');
+}
+
+async function deleteFeedback(docId) {
+  if (!docId) return;
+  try {
+    await db.collection('feedback').doc(docId).delete();
+    allFeedback = allFeedback.filter(f => f.id !== docId);
+    _renderFeedback();
+    showToast('Feedback dismissed.', 'success');
+  } catch (e) {
+    showToast('Dismiss failed: ' + e.message, 'error');
+    console.error('[Admin] deleteFeedback:', e);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2498,7 +2505,7 @@ function _renderFeedback() {
     return;
   }
   el.innerHTML = allFeedback.map(f =>
-    `<div class="fb-card">
+    `<div class="fb-card" id="fb-card-${f.id}" style="position:relative">
       <div class="fb-emoji">${f.emoji || '💬'}</div>
       <div class="fb-body">
         <div class="fb-msg">${_esc(f.message || '(no message)')}</div>
@@ -2508,6 +2515,7 @@ function _renderFeedback() {
           <span class="fb-meta-item">🕐 ${_fmtTs(f.sentAt)}</span>
         </div>
       </div>
+      <button onclick="deleteFeedback('${f.id}')" title="Dismiss feedback" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;font-size:15px;opacity:.45;padding:2px 5px;line-height:1" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.45">✕</button>
     </div>`
   ).join('');
 }
