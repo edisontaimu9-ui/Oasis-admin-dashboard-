@@ -1291,7 +1291,7 @@ body.bg-aurora::before {
       <div class="nav-group-label">System</div>
       <div class="nav-item"        id="nav-settings"   onclick="switchTab('settings')">   <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
       <div class="sidebar-footer">
-        <div class="sidebar-info" id="sidebar-db-info">🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 v1.1.0 · Apr 2026 · Apr 2026</div>
+        <div class="sidebar-info" id="sidebar-db-info">🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 v1.1.1 · Apr 2026 · Apr 2026</div>
       </div>
     </nav>
 
@@ -1407,6 +1407,7 @@ body.bg-aurora::before {
         <div class="toolbar">
           <input type="text" class="search-inp" id="session-search" placeholder="Search Patient ID, Ward, Institution, Calc Type…" oninput="filterSessions()">
           <button class="btn btn-dim" onclick="filterSessions()">Filter</button>
+          <button class="btn" style="background:rgba(220,53,69,.15);color:#ff6b6b;border:1px solid rgba(220,53,69,.35);margin-left:auto" onclick="deleteAllSessions()">🗑 Delete All</button>
         </div>
         <div class="tbl-card">
           <div class="live-card-hdr">
@@ -1415,9 +1416,9 @@ body.bg-aurora::before {
           </div>
           <div class="tbl-wrap">
             <table class="tbl">
-              <thead><tr><th>Date &amp; Time</th><th>Session ID</th><th>Ward</th><th>Institution</th><th>Last Module</th><th>Calcs</th><th>Status</th><th>User</th></tr></thead>
+              <thead><tr><th>Date &amp; Time</th><th>Session ID</th><th>Ward</th><th>Institution</th><th>Last Module</th><th>Calcs</th><th>Status</th><th>User</th><th style="text-align:center">Del</th></tr></thead>
               <tbody id="sessions-tbody">
-                <tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">📋</div>No session data found</div></td></tr>
+                <tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📋</div>No session data found</div></td></tr>
               </tbody>
             </table>
           </div>
@@ -1585,7 +1586,7 @@ body.bg-aurora::before {
                 <div class="stg-info-row"><span class="stat-key">Storage</span><span class="stat-val" style="font-size:9px">Cloud Firestore</span></div>
                 <div class="stg-info-row"><span class="stat-key">Project</span><span class="stat-val">nutri-track-pro-c11c5</span></div>
                 <div class="stg-info-row"><span class="stat-key">Status</span><span class="stat-val"><span class="badge badge-teal" id="set-db-status">● Firestore Live</span></span></div>
-                <div class="stg-info-row"><span class="stat-key">Version</span><span class="stat-val">v1.1.0 · April 2026</span></div>
+                <div class="stg-info-row"><span class="stat-key">Version</span><span class="stat-val">v1.1.1 · April 2026</span></div>
                 <div class="stg-info-row"><span class="stat-key">Environment</span><span class="stat-val"><span class="badge badge-teal">Cloud · Firebase</span></span></div>
               </div>
             </div>
@@ -1610,7 +1611,7 @@ body.bg-aurora::before {
             <div class="upd-mgr-card">
               <div class="upd-mgr-hdr">
                 📦 App Update Manager
-                <span class="upd-ver-badge">v1.1.0</span>
+                <span class="upd-ver-badge">v1.1.1</span>
                 <span class="upd-date-badge">April 2026</span>
               </div>
 
@@ -2174,7 +2175,7 @@ function setDbStatus(state) {
     if (txt) txt.textContent = 'Firestore';
     if (pill) { pill.style.borderColor = 'rgba(29,233,212,0.4)'; pill.style.color = 'var(--teal)'; }
     if (sett) { sett.textContent = '● Firestore Live'; sett.className = 'badge badge-teal'; }
-    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Real-time<br>🛢 RTDB · Presence + Updates<br>🛡 Auth · Admin<br>📦 v1.1.0 · Apr 2026 · Apr 2026';
+    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Real-time<br>🛢 RTDB · Presence + Updates<br>🛡 Auth · Admin<br>📦 v1.1.1 · Apr 2026 · Apr 2026';
     if (sysBadge) { sysBadge.className = 'sys-badge ok'; }
     if (sysDbTxt) sysDbTxt.textContent = 'Cloud Firestore';
     if (sysBadgeStatus) { sysBadgeStatus.className = 'sys-badge ok'; }
@@ -2183,7 +2184,7 @@ function setDbStatus(state) {
     if (dot) { dot.style.background = 'var(--amber)'; dot.style.animation = 'pulse-dot 1s infinite'; }
     if (txt) txt.textContent = 'Connecting…';
     if (sett) { sett.textContent = '⏳ Connecting'; sett.className = 'badge badge-amber'; }
-    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 v1.1.0 · Apr 2026 · Apr 2026';
+    if (sbInfo) sbInfo.innerHTML = '🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 v1.1.1 · Apr 2026 · Apr 2026';
     if (sysBadgeStatus && sysStatusTxt) { sysBadgeStatus.className = 'sys-badge warn'; sysStatusTxt.textContent = 'Connecting to Firestore…'; }
     if (sysBadge && sysDbTxt) { sysBadge.className = 'sys-badge warn'; sysDbTxt.textContent = 'Cloud Firestore'; }
   } else {
@@ -2192,7 +2193,7 @@ function setDbStatus(state) {
     if (txt) txt.textContent = 'Error';
     if (pill) { pill.style.borderColor = 'rgba(251,113,133,0.4)'; pill.style.color = 'var(--red)'; }
     if (sett) { sett.textContent = '✗ Firestore Error'; sett.className = 'badge badge-red'; }
-    if (sbInfo) sbInfo.innerHTML = '🔴 Firestore · Unavailable<br>🛡 Auth · Admin<br>📦 v1.1.0 · Apr 2026 · Apr 2026';
+    if (sbInfo) sbInfo.innerHTML = '🔴 Firestore · Unavailable<br>🛡 Auth · Admin<br>📦 v1.1.1 · Apr 2026 · Apr 2026';
     if (sysBadge) { sysBadge.className = 'sys-badge err'; }
     if (sysDbTxt) sysDbTxt.textContent = 'Firestore Error';
     if (sysBadgeStatus) { sysBadgeStatus.className = 'sys-badge err'; }
@@ -2393,7 +2394,7 @@ function _renderSessionsTable() {
   });
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">🔍</div>No sessions match your search</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">🔍</div>No sessions match your search</div></td></tr>`;
     return;
   }
 
@@ -2413,6 +2414,7 @@ function _renderSessionsTable() {
       <td style="text-align:center">${s.calcCount || 0}</td>
       <td>${statusBadge(s)}</td>
       <td style="font-size:10px;color:var(--text-dim)">${s.userName || '—'}</td>
+      <td style="text-align:center"><button onclick="deleteSession('${s.id}')" title="Delete session" style="background:none;border:none;cursor:pointer;font-size:15px;opacity:.7;padding:2px 6px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">🗑</button></td>
     </tr>`
   ).join('');
 }
@@ -2420,6 +2422,56 @@ function _renderSessionsTable() {
 function filterSessions() {
   _sessionSearch = document.getElementById('session-search')?.value || '';
   _renderSessionsTable();
+}
+
+async function deleteSession(docId) {
+  if (!docId) return;
+  if (!confirm('Delete this session record? This cannot be undone.')) return;
+  try {
+    await db.collection('sessions').doc(docId).delete();
+    allSessions = allSessions.filter(s => s.id !== docId);
+    _renderSessionsTable();
+    _updateSessionsKPIs();
+    showToast('Session deleted.', 'success');
+  } catch (e) {
+    showToast('Delete failed: ' + e.message, 'error');
+    console.error('[Admin] deleteSession:', e);
+  }
+}
+
+async function deleteAllSessions() {
+  const q = _sessionSearch.toLowerCase();
+  const targets = q
+    ? allSessions.filter(s =>
+        (s.sessionId||'').toLowerCase().includes(q) ||
+        (s.institution||'').toLowerCase().includes(q) ||
+        (s.lastModule||'').toLowerCase().includes(q) ||
+        (s.ward||'').toLowerCase().includes(q) ||
+        (s.userName||'').toLowerCase().includes(q))
+    : [...allSessions];
+  if (!targets.length) return;
+  const label = q ? `${targets.length} filtered session(s)` : `ALL ${targets.length} session(s)`;
+  if (!confirm(`Permanently delete ${label}? This cannot be undone.`)) return;
+  showToast(`Deleting ${targets.length} session(s)…`, 'info');
+  let ok = 0, fail = 0;
+  // Firestore batch max = 500 docs
+  const BATCH_SIZE = 400;
+  for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+    const chunk = targets.slice(i, i + BATCH_SIZE);
+    const batch = db.batch();
+    chunk.forEach(s => batch.delete(db.collection('sessions').doc(s.id)));
+    try {
+      await batch.commit();
+      ok += chunk.length;
+    } catch (e) {
+      fail += chunk.length;
+      showToast('Batch error: ' + e.message, 'error');
+    }
+  }
+  allSessions = allSessions.filter(s => !targets.find(t => t.id === s.id));
+  _renderSessionsTable();
+  _updateSessionsKPIs();
+  showToast(`Deleted ${ok} session(s)${fail ? ` · ${fail} failed` : ''}.`, fail ? 'error' : 'success');
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3388,7 +3440,7 @@ setTimeout(_dismissSplash, 2600);
 /* ═══════════════════════════════════════════════════════════
    VERSION CONSTANTS
 ═══════════════════════════════════════════════════════════ */
-const ADMIN_VERSION      = 'v1.1.0';
+const ADMIN_VERSION      = 'v1.1.1';
 const ADMIN_VERSION_DATE = 'April 2026';
 
 /* ═══════════════════════════════════════════════════════════
