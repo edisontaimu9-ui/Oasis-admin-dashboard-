@@ -1,2 +1,1 @@
-# NutriTrackProAdmin
-Admin dashboard for Nutri Track Pro
+MiNutriQ Admin is a web-based administrative panel designed to manage and monitor the MiNutriQ App. It provides tools for handling users, food databases, and system analytics in a simple and efficient way.
