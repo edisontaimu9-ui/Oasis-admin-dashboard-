@@ -181,6 +181,8 @@
           <div class="kpi-card c-amber"  data-icon="⚗️"><div class="kpi-label">Calculations</div>    <div class="kpi-val" id="home-total-calcs">—</div><div class="kpi-sub">All time</div></div>
           <div class="kpi-card c-blue"   data-icon="💬"><div class="kpi-label">Feedback</div>         <div class="kpi-val" id="home-feedback-count">—</div><div class="kpi-sub">Total submitted</div></div>
           <div class="kpi-card c-purple" data-icon="🏥"><div class="kpi-label">Institutions</div>    <div class="kpi-val" id="home-institutions">—</div><div class="kpi-sub">Unique sites</div></div>
+          <div class="kpi-card c-indigo" data-icon="👤"><div class="kpi-label">Registered Accounts</div><div class="kpi-val" id="home-total-accounts">—</div><div class="kpi-sub">All time</div></div>
+          <div class="kpi-card c-rose"   data-icon="✨"><div class="kpi-label">New Accounts</div>       <div class="kpi-val" id="home-new-accounts-24h">—</div><div class="kpi-sub">Last 24 hours</div></div>
         </div>
         <div class="section-hdr"><span class="section-title">Quick Navigation</span><div class="section-line"></div></div>
         <div class="quick-nav-grid">
@@ -206,30 +208,16 @@
           </div>
         </div>
 
-        <!-- ── UPDATE MANAGER (home) ── -->
-        <div class="section-hdr"><span class="section-title">Updates Manager</span><div class="section-line"></div></div>
+        <!-- ── CLIENT RELEASE BROADCAST ── -->
+        <div class="section-hdr"><span class="section-title">Client Release</span><div class="section-line"></div></div>
         <div class="upd-mgr-card">
           <div class="upd-mgr-hdr">
-            📦 App Update Manager
-            <span class="upd-ver-badge">1.0.0</span>
-            <span class="upd-date-badge">April 2026</span>
+            🚀 Push Release to MiNutriQ
+            <span class="upd-ver-badge" style="background:rgba(240,180,41,0.12);border-color:rgba(240,180,41,0.35);color:var(--amber)">CLIENT</span>
           </div>
 
-          <!-- Admin self-update status -->
-          <div class="upd-status-row">
-            <div class="upd-status-dot checking" id="upd-status-dot"></div>
-            <span class="upd-status-text" id="upd-status-text">Checking for admin updates…</span>
-            <button class="upd-check-btn" onclick="checkAdminUpdate()">↻ Check</button>
-          </div>
-          <div class="upd-actions-row">
-            <button class="upd-apply-now-btn" id="upd-apply-btn" onclick="applyAdminUpdate()" disabled>
-              ↻ APPLY UPDATE &amp; RELOAD
-            </button>
-          </div>
-
-          <!-- Push update to MiNutriQ PWA -->
-          <div class="push-upd-section">
-            <div class="push-upd-label">Push Update to MiNutriQ PWA</div>
+          <div class="push-upd-section" style="padding-top:14px">
+            <div class="push-upd-label">Broadcast a new version + release notes to all active clients</div>
             <div class="push-upd-row">
               <input  class="push-upd-input"    id="push-ver-input"   placeholder="e.g. 1.2.2"
                       value="" maxlength="20" spellcheck="false">
@@ -237,7 +225,7 @@
                         placeholder="Release notes… (shown to users in update prompt)"></textarea>
             </div>
             <button class="push-upd-btn" id="push-upd-btn" onclick="pushUpdateToNTP()">
-              <span>🚀</span> PUSH UPDATE TO ALL CLIENTS
+              <span>🚀</span> PUSH RELEASE TO ALL CLIENTS
             </button>
             <div class="push-upd-log" id="push-upd-log">
               <span class="log-info">Ready. Enter version + notes then push.</span>

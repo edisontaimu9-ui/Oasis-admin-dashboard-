@@ -623,6 +623,17 @@ function _updateSessionsKPIs() {
   _set('sessions-count-badge',  total + ' total');
   _set('nb-sessions',           total);
   _set('ttn-badge-sessions',    total);
+
+  // Registered accounts KPIs
+  const totalAccounts = allUsers.length;
+  const cutoff24h = new Date(Date.now() - 86_400_000);
+  const newAccounts24h = allUsers.filter(u => {
+    const s = allSessions.find(sess => sess.userId === u.id);
+    if (!s) return false;
+    return _ts(s) >= cutoff24h;
+  }).length;
+  _set('home-total-accounts',   totalAccounts);
+  _set('home-new-accounts-24h', newAccounts24h || '0');
 }
 
 function _updatePresenceKPIs() {
