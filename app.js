@@ -121,61 +121,18 @@ const TODAY = new Date().toISOString().slice(0, 10);
    CHART DEFAULTS
 ═══════════════════════════════════════════════════════════ */
 const CHART_COLORS = ['#1de9d4','#f0b429','#60a5fa','#34d399','#a78bfa','#fb7185','#fbbf24','#38bdf8'];
-function _isLightTheme() {
-  const t = APPEARANCE?.theme;
-  if (!t) return false;
-  if (t === 'light') return true;
-  if (t === 'auto') return window.matchMedia('(prefers-color-scheme: light)').matches;
-  return false;
-}
 const CHART_DEFAULTS = {
   responsive: true,
   maintainAspectRatio: false,
-  get plugins() {
-    const light = _isLightTheme();
-    return {
-      legend: { labels: { color: light ? '#334155' : '#6b82a0', font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10 } },
-      tooltip: {
-        backgroundColor: light ? '#ffffff' : '#080f1e',
-        borderColor: light ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.12)',
-        borderWidth: 1,
-        titleColor: light ? '#1e293b' : '#c8d8f0',
-        bodyColor: light ? '#475569' : '#6b82a0',
-        titleFont: { family: 'JetBrains Mono' },
-        bodyFont: { family: 'JetBrains Mono', size: 10 },
-        boxShadow: light ? '0 4px 16px rgba(0,0,0,0.10)' : undefined
-      }
-    };
+  plugins: {
+    legend: { labels: { color: '#6b82a0', font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10 } },
+    tooltip: { backgroundColor: '#080f1e', borderColor: 'rgba(255,255,255,0.12)', borderWidth: 1, titleColor: '#c8d8f0', bodyColor: '#6b82a0', titleFont: { family: 'JetBrains Mono' }, bodyFont: { family: 'JetBrains Mono', size: 10 } }
   }
 };
 
 /* ═══════════════════════════════════════════════════════════
    CHART HELPERS
 ═══════════════════════════════════════════════════════════ */
-/** Returns Chart.js scale options that adapt to the current theme */
-function _chartScales(xOpts, yOpts) {
-  const light = _isLightTheme();
-  const gridColor   = light ? 'rgba(0,0,0,0.06)'  : 'rgba(30,48,80,0.5)';
-  const gridColorY  = light ? 'rgba(0,0,0,0.04)'  : 'rgba(30,48,80,0.3)';
-  const tickColor   = light ? '#64748b'            : '#3d5070';
-  const tickColorDim= light ? '#94a3b8'            : '#6b82a0';
-  return {
-    x: { grid: { color: gridColor  }, ticks: { color: tickColor,    font: { family: 'JetBrains Mono', size: xOpts?.size ?? 8 }, ...(xOpts?.extra || {}) } },
-    y: { grid: { color: gridColor  }, ticks: { color: tickColor,    font: { family: 'JetBrains Mono', size: yOpts?.size ?? 9 } }, beginAtZero: true, ...(yOpts?.extra || {}) },
-  };
-}
-function _chartScalesHBar(xOpts, yOpts) {
-  const light = _isLightTheme();
-  const gridColorX  = light ? 'rgba(0,0,0,0.06)'  : 'rgba(30,48,80,0.5)';
-  const gridColorY  = light ? 'rgba(0,0,0,0.04)'  : 'rgba(30,48,80,0.3)';
-  const tickColorX  = light ? '#64748b'            : '#3d5070';
-  const tickColorY  = light ? '#94a3b8'            : '#6b82a0';
-  return {
-    x: { grid: { color: gridColorX }, ticks: { color: tickColorX, font: { family: 'JetBrains Mono', size: xOpts?.size ?? 9 } }, beginAtZero: true },
-    y: { grid: { color: gridColorY }, ticks: { color: tickColorY, font: { family: 'JetBrains Mono', size: yOpts?.size ?? 8 } } },
-  };
-}
-
 function makeChart(id, cfg) {
   if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
   const ctx = document.getElementById(id);
@@ -1008,7 +965,7 @@ function _chartSessionsTrend() {
   makeChart('chart-sessions-trend', {
     type: 'line',
     data: { labels, datasets: [{ label: 'Sessions', data: counts, borderColor: '#1de9d4', backgroundColor: 'rgba(29,233,212,0.06)', pointBackgroundColor: '#1de9d4', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 3 }] },
-    options: { ...CHART_DEFAULTS, scales: _chartScales({ size: 8 }, { size: 9 }) }
+    options: { ...CHART_DEFAULTS, scales: { x: { grid: { color: 'rgba(30,48,80,0.5)' }, ticks: { color: '#3d5070', font: { family: 'JetBrains Mono', size: 8 } } }, y: { grid: { color: 'rgba(30,48,80,0.5)' }, ticks: { color: '#3d5070', font: { family: 'JetBrains Mono', size: 9 } }, beginAtZero: true } } }
   });
 }
 
@@ -1032,7 +989,7 @@ function _chartInstitutions() {
   makeChart('chart-institutions', {
     type: 'bar',
     data: { labels: sorted.map(([k]) => k.length > 20 ? k.slice(0, 18) + '…' : k), datasets: [{ label: 'Sessions', data: sorted.map(([, v]) => v), backgroundColor: CHART_COLORS.map(c => c + '30'), borderColor: CHART_COLORS, borderWidth: 2, borderRadius: 4 }] },
-    options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } }, scales: _chartScales({ size: 7, extra: { maxRotation: 30 } }, { size: 9 }) }
+    options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } }, scales: { x: { grid: { color: 'rgba(30,48,80,0.5)' }, ticks: { color: '#3d5070', font: { family: 'JetBrains Mono', size: 7 }, maxRotation: 30 } }, y: { grid: { color: 'rgba(30,48,80,0.5)' }, ticks: { color: '#3d5070', font: { family: 'JetBrains Mono', size: 9 } }, beginAtZero: true } } }
   });
 }
 
@@ -1073,7 +1030,7 @@ function _chartHourly() {
   makeChart('chart-hourly', {
     type: 'bar',
     data: { labels, datasets: [{ label: 'Activity', data: counts, backgroundColor: counts.map((_, i) => i === 11 ? 'rgba(52,211,153,0.6)' : 'rgba(29,233,212,0.12)'), borderColor: counts.map((_, i) => i === 11 ? '#34d399' : '#1de9d4'), borderWidth: 1, borderRadius: 4 }] },
-    options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } }, scales: _chartScales({ size: 8 }, { size: 9, extra: { stepSize: 1 } }) }
+    options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } }, scales: { x: { grid: { color: 'rgba(30,48,80,0.5)' }, ticks: { color: '#3d5070', font: { family: 'JetBrains Mono', size: 8 } } }, y: { grid: { color: 'rgba(30,48,80,0.5)' }, ticks: { color: '#3d5070', font: { family: 'JetBrains Mono', size: 9 } }, beginAtZero: true, stepSize: 1 } } }
   });
 }
 
@@ -1104,7 +1061,7 @@ function _chartDiagnoses() {
   makeChart('chart-diagnoses', {
     type: 'bar',
     data: { labels: sorted.map(([k]) => k.length > 22 ? k.slice(0, 20) + '…' : k), datasets: [{ label: 'Calcs', data: sorted.map(([, v]) => v), backgroundColor: 'rgba(240,180,41,0.15)', borderColor: '#f0b429', borderWidth: 2, borderRadius: 4 }] },
-    options: { ...CHART_DEFAULTS, indexAxis: 'y', plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } }, scales: _chartScalesHBar({ size: 9 }, { size: 8 }) }
+    options: { ...CHART_DEFAULTS, indexAxis: 'y', plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } }, scales: { x: { grid: { color: 'rgba(30,48,80,0.5)' }, ticks: { color: '#3d5070', font: { family: 'JetBrains Mono', size: 9 } }, beginAtZero: true }, y: { grid: { color: 'rgba(30,48,80,0.3)' }, ticks: { color: '#6b82a0', font: { family: 'JetBrains Mono', size: 8 } } } } }
   });
 }
 
@@ -1116,7 +1073,7 @@ function _chartHospitalUsage() {
   makeChart('chart-hospital-usage', {
     type: 'bar',
     data: { labels: sorted.map(([k]) => k.length > 22 ? k.slice(0, 20) + '…' : k), datasets: [{ label: 'Sessions', data: sorted.map(([, v]) => v), backgroundColor: 'rgba(96,165,250,0.15)', borderColor: '#60a5fa', borderWidth: 2, borderRadius: 4 }] },
-    options: { ...CHART_DEFAULTS, indexAxis: 'y', plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } }, scales: _chartScalesHBar({ size: 9 }, { size: 8 }) }
+    options: { ...CHART_DEFAULTS, indexAxis: 'y', plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } }, scales: { x: { grid: { color: 'rgba(30,48,80,0.5)' }, ticks: { color: '#3d5070', font: { family: 'JetBrains Mono', size: 9 } }, beginAtZero: true }, y: { grid: { color: 'rgba(30,48,80,0.3)' }, ticks: { color: '#6b82a0', font: { family: 'JetBrains Mono', size: 8 } } } } }
   });
 }
 
@@ -1225,9 +1182,9 @@ const THEMES = {
     '--text':'#c8d8f0','--text-dim':'#6b82a0','--text-muted':'#3d5070',
   },
   light: {
-    '--bg':'#f8fafc','--surface':'#ffffff','--surface2':'#f1f5f9','--surface3':'#e8eef6',
-    '--border':'rgba(0,0,0,0.05)','--border2':'rgba(0,0,0,0.08)',
-    '--text':'#1e293b','--text-dim':'#475569','--text-muted':'#94a3b8',
+    '--bg':'#edf2f9','--surface':'#ffffff','--surface2':'#f4f7fb','--surface3':'#e8eef6',
+    '--border':'rgba(0,0,0,0.08)','--border2':'rgba(0,0,0,0.15)',
+    '--text':'#1a2a44','--text-dim':'#4a6080','--text-muted':'#8090a8',
   },
   amoled: {
     '--bg':'#000000','--surface':'#080808','--surface2':'#101010','--surface3':'#181818',
@@ -1312,9 +1269,6 @@ function applyAppearance() {
     : theme;
   const vars = THEMES[resolvedTheme] || THEMES.dark;
   Object.entries(vars).forEach(([k,v]) => root.style.setProperty(k, v));
-
-  // Body theme class (drives CSS-only component overrides)
-  document.body.classList.toggle('theme-light', resolvedTheme === 'light');
 
   // Accent
   root.style.setProperty('--teal', accent);
