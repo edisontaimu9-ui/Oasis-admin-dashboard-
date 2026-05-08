@@ -914,6 +914,50 @@ body.theme-light .pwd-strength-bar { background: rgba(0,0,0,0.12); }
 /* Stat rows */
 body.theme-light .stat-row { border-bottom-color: rgba(0,0,0,0.07); }
 
+/* ── Light mode: bg patterns — reduce opacity so they don't bleed on light bg ── */
+body.theme-light::before { opacity: 0.4 !important; }
+
+/* ── Light mode: nav-badge, ttn-badge — boost contrast ── */
+body.theme-light .nav-badge { background: rgba(29,233,212,0.14); }
+body.theme-light .ttn-badge { background: rgba(29,233,212,0.16); }
+
+/* ── Light mode: section title text ── */
+body.theme-light .section-title { color: #4a6080; }
+body.theme-light .nav-group-label { color: #8090a8; }
+
+/* ── Light mode: page-title sub ── */
+body.theme-light .page-title span { color: #8090a8; }
+
+/* ── Light mode: kpi-card icon overlay — darken slightly ── */
+body.theme-light .kpi-card::after { opacity: 0.12; filter: invert(0.8); }
+
+/* ── Light mode: hero eyebrow line ── */
+body.theme-light .hero-eyebrow { opacity: 0.85; }
+
+/* ── Light mode: stg-section-sub ── */
+body.theme-light .stg-section-sub { color: #8090a8; }
+body.theme-light .stg-divider { border-top-color: rgba(0,0,0,0.08); }
+
+/* ── Light mode: upd status/actions rows ── */
+body.theme-light .upd-status-row { border-bottom-color: rgba(0,0,0,0.07); }
+body.theme-light .upd-actions-row { border-bottom-color: rgba(0,0,0,0.07); }
+body.theme-light .upd-mgr-hdr { border-bottom-color: rgba(0,0,0,0.08); }
+body.theme-light .upd-check-btn { border-color: rgba(0,0,0,0.16); color: #4a6080; }
+body.theme-light .upd-check-btn:hover { border-color: var(--teal); color: var(--teal); }
+
+/* ── Light mode: sidebar info text ── */
+body.theme-light .sidebar-info { color: #8090a8; }
+
+/* ── Light mode: status-sep ── */
+body.theme-light .status-sep { background: rgba(0,0,0,0.12); }
+
+/* ── Light mode: empty state ── */
+body.theme-light .empty-state { color: #8090a8; }
+
+/* ── Light mode: fb-meta items ── */
+body.theme-light .fb-meta-item { color: #8090a8; }
+body.theme-light .fb-msg { color: #1a2a44; }
+
 /* Aurora animation */
 @keyframes aurora-drift {
   0%  { background-position: 0% 50%; }

@@ -131,21 +131,24 @@ const CHART_DEFAULTS = {
 };
 
 function _getChartThemeDefaults() {
-  const style = getComputedStyle(document.documentElement);
-  const surface  = style.getPropertyValue('--surface').trim()  || '#080f1e';
-  const textDim  = style.getPropertyValue('--text-dim').trim() || '#6b82a0';
-  const text     = style.getPropertyValue('--text').trim()     || '#c8d8f0';
-  const border   = style.getPropertyValue('--border2').trim()  || 'rgba(255,255,255,0.12)';
+  const style    = getComputedStyle(document.documentElement);
+  const surface  = style.getPropertyValue('--surface').trim()   || '#080f1e';
+  const textDim  = style.getPropertyValue('--text-dim').trim()  || '#6b82a0';
+  const textMuted= style.getPropertyValue('--text-muted').trim()|| '#3d5070';
+  const text     = style.getPropertyValue('--text').trim()      || '#c8d8f0';
+  const border   = style.getPropertyValue('--border2').trim()   || 'rgba(255,255,255,0.12)';
+  const border1  = style.getPropertyValue('--border').trim()    || 'rgba(255,255,255,0.07)';
   return {
-    responsive: true,
-    maintainAspectRatio: false,
     plugins: {
       legend: { labels: { color: textDim, font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10 } },
       tooltip: { backgroundColor: surface, borderColor: border, borderWidth: 1, titleColor: text, bodyColor: textDim, titleFont: { family: 'JetBrains Mono' }, bodyFont: { family: 'JetBrains Mono', size: 10 } }
+    },
+    scaleDefaults: {
+      grid:  { color: border1 },
+      ticks: { color: textMuted, font: { family: 'JetBrains Mono', size: 9 } },
     }
   };
 }
-
 
 function makeChart(id, cfg) {
   if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
@@ -155,7 +158,16 @@ function makeChart(id, cfg) {
   cfg.options = cfg.options || {};
   cfg.options.responsive = true;
   cfg.options.maintainAspectRatio = false;
+  // Merge plugins (legend, tooltip)
   cfg.options.plugins = { ...td.plugins, ...(cfg.options.plugins || {}) };
+  // Deep-merge scale grid/tick colors so all charts respect the active theme
+  if (cfg.options.scales) {
+    Object.keys(cfg.options.scales).forEach(axis => {
+      const s = cfg.options.scales[axis];
+      s.grid  = { ...td.scaleDefaults.grid,  ...(s.grid  || {}) };
+      s.ticks = { ...td.scaleDefaults.ticks, ...(s.ticks || {}) };
+    });
+  }
   _charts[id] = new Chart(ctx, cfg);
 }
 
