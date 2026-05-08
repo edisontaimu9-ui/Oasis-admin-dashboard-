@@ -1150,7 +1150,7 @@ function switchTab(tab) {
   if (Array.isArray(btnTarget)) btnTarget.forEach(id => document.getElementById(id)?.classList.add('active'));
   else if (btnTarget) document.getElementById(btnTarget)?.classList.add('active');
 
-  const labels = { home:'Home', overview:'Overview', analytics:'Analytics', online:'Online', sessions:'Sessions', feedback:'Feedback', settings:'Settings' };
+  const labels = { home:'Home', overview:'Overview', analytics:'Analytics', online:'Online', sessions:'Sessions', feedback:'Feedback', settings:'Settings', users:'Users', errors:'Error Log', offline:'Offline Usage' };
   document.getElementById('content-title').textContent = labels[tab] || tab;
 
   // Re-render charts when switching to chart tabs (canvas size may change)
@@ -1158,6 +1158,9 @@ function switchTab(tab) {
   if (tab === 'analytics') { setTimeout(_renderAnalyticsCharts, 50); setTimeout(_renderLiveUsersTable, 50); }
   if (tab === 'online')    { setTimeout(_renderOnlineTab, 50); }
   if (tab === 'settings')  { setTimeout(() => { _syncAppearanceUI(); _renderBgPreviews(); }, 30); }
+  if (tab === 'users')     { setTimeout(renderUsersTable, 50); }
+  if (tab === 'errors')    { setTimeout(renderErrorLog, 50); }
+  if (tab === 'offline')   { setTimeout(renderOfflineTab, 50); }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2114,3 +2117,264 @@ function _pushLog(el, type, msg) {
     initFirestoreListeners();
   }
 })();
+
+/* ═══════════════════════════════════════════════════════════
+   USER ROLE MANAGEMENT
+═══════════════════════════════════════════════════════════ */
+let _urmFilter   = 'all';
+let _urmEditUser = null;
+let _userRoleOverrides = {};  // { userId: newRole } — persisted to Firestore if available
+
+function setUrmFilter(chip) {
+  document.querySelectorAll('#urm-role-filter .chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  _urmFilter = chip.dataset.val;
+  renderUsersTable();
+}
+
+function renderUsersTable() {
+  const q      = (document.getElementById('urm-search')?.value || '').toLowerCase();
+  const tbody  = document.getElementById('urm-tbody');
+  if (!tbody) return;
+
+  // Build enriched user list from allUsers + session data
+  const enriched = allUsers.map(u => {
+    const sessions     = allSessions.filter(s => s.userId === u.id);
+    const lastSession  = sessions.sort((a, b) => _ts(b) - _ts(a))[0];
+    const institution  = lastSession?.institution || u.institution || '—';
+    const userName     = lastSession?.userName    || u.userName    || '—';
+    const role         = _userRoleOverrides[u.id] || u.userRole    || 'Unknown';
+    const lastActive   = lastSession ? _fmtDate(_ts(lastSession)) : '—';
+    return { ...u, sessions: sessions.length, institution, userName, role, lastActive };
+  });
+
+  const filtered = enriched.filter(u => {
+    if (_urmFilter !== 'all' && u.role !== _urmFilter) return false;
+    if (q && !u.id.toLowerCase().includes(q) &&
+             !u.userName.toLowerCase().includes(q) &&
+             !u.institution.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  _set('urm-count-label', filtered.length + ' account' + (filtered.length !== 1 ? 's' : ''));
+  _set('nb-users', allUsers.length);
+
+  const roleColors = {
+    Dietitian: 'var(--teal)', Clinician: 'var(--blue)', Nurse: 'var(--green)',
+    Student: 'var(--amber)', Researcher: 'var(--purple)', Other: 'var(--text-muted)', Unknown: 'var(--text-muted)'
+  };
+
+  tbody.innerHTML = filtered.map(u => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--teal)">${_esc(u.id.slice(0,16))}</td>
+      <td>${_esc(u.userName)}</td>
+      <td>${_esc(u.institution)}</td>
+      <td><span style="color:${roleColors[u.role]||'var(--text-muted)'};font-weight:600;font-size:11px">${_esc(u.role)}</span></td>
+      <td style="text-align:center">${u.sessions}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text-dim)">${u.lastActive}</td>
+      <td>
+        <button class="urm-edit-btn" onclick="openUrmModal('${_esc(u.id)}')">✏ Edit Role</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No accounts match</td></tr>';
+}
+
+function openUrmModal(userId) {
+  const u = allUsers.find(u => u.id === userId);
+  if (!u) return;
+  _urmEditUser = userId;
+  const currentRole = _userRoleOverrides[userId] || u.userRole || 'Unknown';
+  document.getElementById('urm-modal-uid').textContent  = userId;
+  document.getElementById('urm-modal-name').textContent = u.userName || '—';
+  document.querySelectorAll('#urm-modal-roles .chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.val === currentRole);
+  });
+  document.getElementById('urm-modal').style.display = 'flex';
+}
+
+function closeUrmModal(e) {
+  if (e && e.target !== document.getElementById('urm-modal')) return;
+  document.getElementById('urm-modal').style.display = 'none';
+  _urmEditUser = null;
+}
+
+function selectUrmRole(chip) {
+  document.querySelectorAll('#urm-modal-roles .chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+}
+
+function saveUserRole() {
+  if (!_urmEditUser) return;
+  const selected = document.querySelector('#urm-modal-roles .chip.active');
+  if (!selected) { showToast('Select a role first', 'warn'); return; }
+  const newRole = selected.dataset.val;
+  _userRoleOverrides[_urmEditUser] = newRole;
+
+  // Persist to Firestore if connected
+  if (typeof db !== 'undefined' && USE_FIREBASE) {
+    db.collection('userRoles').doc(_urmEditUser).set({ role: newRole, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+      .then(() => showToast('Role updated in Firestore ✓', 'success'))
+      .catch(() => showToast('Saved locally (Firestore write failed)', 'warn'));
+  } else {
+    showToast('Role updated (offline mode)', 'info');
+  }
+
+  document.getElementById('urm-modal').style.display = 'none';
+  _urmEditUser = null;
+  renderUsersTable();
+}
+
+function _fmtDate(d) {
+  if (!d || isNaN(d)) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ERROR & CRASH LOG
+═══════════════════════════════════════════════════════════ */
+let _errorLog   = [];   // { level, msg, source, ts }
+let _errFilter  = 'all';
+
+// Intercept global JS errors
+(function _patchErrorHandlers() {
+  window.addEventListener('error', e => {
+    _logError('error', e.message || 'Unknown error', e.filename ? (e.filename.split('/').pop() + ':' + e.lineno) : 'window');
+  });
+  window.addEventListener('unhandledrejection', e => {
+    _logError('error', String(e.reason), 'Promise');
+  });
+  // Also patch console.error and console.warn
+  const _origErr  = console.error.bind(console);
+  const _origWarn = console.warn.bind(console);
+  console.error = (...args) => { _logError('error', args.map(String).join(' '), 'console'); _origErr(...args); };
+  console.warn  = (...args) => { _logError('warn',  args.map(String).join(' '), 'console'); _origWarn(...args); };
+})();
+
+function _logError(level, msg, source) {
+  _errorLog.unshift({ level, msg: String(msg).slice(0, 300), source: source || '—', ts: Date.now() });
+  if (_errorLog.length > 200) _errorLog.length = 200;
+  _set('nb-errors', _errorLog.filter(e => e.level === 'error').length || '');
+  // Re-render if tab is visible
+  if (document.getElementById('tab-errors')?.classList.contains('active')) renderErrorLog();
+}
+
+function setErrFilter(chip) {
+  document.querySelectorAll('#err-level-filter .chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  _errFilter = chip.dataset.val;
+  renderErrorLog();
+}
+
+function renderErrorLog() {
+  const wrap = document.getElementById('err-log-wrap');
+  if (!wrap) return;
+  const filtered = _errFilter === 'all' ? _errorLog : _errorLog.filter(e => e.level === _errFilter);
+  _set('err-count-label', filtered.length + ' entr' + (filtered.length === 1 ? 'y' : 'ies'));
+  document.getElementById('err-empty').style.display = filtered.length ? 'none' : 'block';
+
+  const icons = { error: '🔴', warn: '🟡', info: '🔵' };
+  const colors = { error: 'var(--red)', warn: 'var(--amber)', info: 'var(--blue)' };
+
+  const existing = wrap.querySelectorAll('.err-entry');
+  existing.forEach(e => e.remove());
+
+  filtered.forEach(entry => {
+    const el = document.createElement('div');
+    el.className = 'err-entry err-' + entry.level;
+    const t = new Date(entry.ts);
+    const time = t.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    const date = t.toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+    el.innerHTML = `
+      <div class="err-meta">
+        <span class="err-icon">${icons[entry.level] || '⚪'}</span>
+        <span class="err-level-badge" style="color:${colors[entry.level]||'inherit'}">${entry.level.toUpperCase()}</span>
+        <span class="err-source">${_esc(entry.source)}</span>
+        <span class="err-time">${date} ${time}</span>
+      </div>
+      <div class="err-msg">${_esc(entry.msg)}</div>
+    `;
+    wrap.appendChild(el);
+  });
+}
+
+function clearErrorLog() {
+  if (!confirm('Clear all ' + _errorLog.length + ' log entries?')) return;
+  _errorLog = [];
+  _set('nb-errors', '');
+  renderErrorLog();
+  showToast('Error log cleared', 'info');
+}
+
+// Seed a few demo log entries so the tab isn't empty on first load
+setTimeout(() => {
+  _logError('info',  'Admin dashboard initialised', 'app.js');
+  _logError('info',  'Firestore listeners attached', 'app.js');
+}, 500);
+
+/* ═══════════════════════════════════════════════════════════
+   OFFLINE USAGE TRACKER
+═══════════════════════════════════════════════════════════ */
+function renderOfflineTab() {
+  const total    = allSessions.length;
+  // Sessions flagged offline: check for isOffline flag, or fallback: sessionId starts with 'offline_'
+  const offlineSessions = allSessions.filter(s =>
+    s.isOffline === true || s.offline === true || (s.sessionId || '').startsWith('offline_')
+  );
+  const onlineCount  = total - offlineSessions.length;
+  const offlineRate  = total > 0 ? ((offlineSessions.length / total) * 100).toFixed(1) + '%' : '—';
+
+  _set('off-total',  total);
+  _set('off-count',  offlineSessions.length);
+  _set('off-online', onlineCount);
+  _set('off-rate',   offlineRate);
+
+  // Per-institution breakdown
+  const instMap = {};
+  allSessions.forEach(s => {
+    const inst = s.institution || 'Unknown';
+    if (!instMap[inst]) instMap[inst] = { total: 0, offline: 0 };
+    instMap[inst].total++;
+    if (s.isOffline === true || s.offline === true || (s.sessionId || '').startsWith('offline_'))
+      instMap[inst].offline++;
+  });
+
+  const instList = document.getElementById('off-inst-list');
+  if (instList) {
+    const sorted = Object.entries(instMap).sort((a, b) => b[1].total - a[1].total);
+    instList.innerHTML = sorted.map(([name, d]) => {
+      const pct = d.total > 0 ? (d.offline / d.total * 100).toFixed(0) : 0;
+      const barColor = pct >= 60 ? 'var(--red)' : pct >= 30 ? 'var(--amber)' : 'var(--teal)';
+      return `
+        <div class="off-inst-row">
+          <div class="off-inst-name">${_esc(name)}</div>
+          <div class="off-inst-stats">
+            <span class="off-inst-num">${d.offline} offline</span>
+            <span class="off-inst-sep">/</span>
+            <span class="off-inst-total">${d.total} total</span>
+          </div>
+          <div class="off-bar-track">
+            <div class="off-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+          </div>
+          <div class="off-pct">${pct}%</div>
+        </div>
+      `;
+    }).join('') || '<div style="color:var(--text-muted);font-size:12px;padding:12px">No session data yet.</div>';
+  }
+
+  // Recent offline sessions table
+  const tbody = document.getElementById('off-tbody');
+  if (tbody) {
+    const recent = offlineSessions.slice(0, 50);
+    tbody.innerHTML = recent.map(s => `
+      <tr>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--amber)">${_esc((s.sessionId||'—').slice(0,16))}</td>
+        <td>${_esc(s.userName || s.userId || '—')}</td>
+        <td>${_esc(s.institution || '—')}</td>
+        <td>${_esc(s.module || '—')}</td>
+        <td style="font-family:var(--mono);font-size:10px">${_fmtDate(_ts(s))}</td>
+        <td><span style="color:var(--amber);font-size:10px;font-weight:700">📴 OFFLINE</span></td>
+      </tr>
+    `).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">No offline sessions found</td></tr>';
+  }
+}

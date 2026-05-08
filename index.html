@@ -153,7 +153,10 @@
       <div class="nav-item"        id="nav-feedback"   onclick="switchTab('feedback')">   <span class="nav-icon">💬</span><span class="nav-label">Feedback</span>   <span class="nav-badge" id="nb-feedback">—</span></div>
       <div class="nav-sep"></div>
       <div class="nav-group-label">System</div>
-      <div class="nav-item"        id="nav-settings"   onclick="switchTab('settings')">   <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
+      <div class="nav-item"        id="nav-users"     onclick="switchTab('users')">     <span class="nav-icon">👥</span><span class="nav-label">Users</span>      <span class="nav-badge" id="nb-users">—</span></div>
+      <div class="nav-item"        id="nav-errors"    onclick="switchTab('errors')">    <span class="nav-icon">🔴</span><span class="nav-label">Error Log</span>  <span class="nav-badge" id="nb-errors">—</span></div>
+      <div class="nav-item"        id="nav-offline"   onclick="switchTab('offline')">   <span class="nav-icon">📶</span><span class="nav-label">Offline</span></div>
+      <div class="nav-item"        id="nav-settings"  onclick="switchTab('settings')">  <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
       <div class="sidebar-footer">
         <div class="sidebar-info" id="sidebar-db-info">🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 1.0.0 · Apr 2026 · Apr 2026</div>
       </div>
@@ -531,6 +534,88 @@
         </div>
 
       </div><!-- /settings -->
+
+      <!-- ══════ USERS ══════ -->
+      <div class="tab-pane" id="tab-users">
+        <div class="content-header"><div class="page-title">Users <span>Role management</span></div></div>
+        <div class="urm-filter-bar">
+          <input class="urm-search" id="urm-search" placeholder="🔍  Search by name, ID or institution…" oninput="renderUsersTable()">
+          <div class="chip-group" id="urm-role-filter">
+            <div class="chip active" data-val="all"        onclick="setUrmFilter(this)">All</div>
+            <div class="chip"        data-val="Dietitian"  onclick="setUrmFilter(this)">Dietitian</div>
+            <div class="chip"        data-val="Clinician"  onclick="setUrmFilter(this)">Clinician</div>
+            <div class="chip"        data-val="Nurse"      onclick="setUrmFilter(this)">Nurse</div>
+            <div class="chip"        data-val="Student"    onclick="setUrmFilter(this)">Student</div>
+            <div class="chip"        data-val="Researcher" onclick="setUrmFilter(this)">Researcher</div>
+            <div class="chip"        data-val="Other"      onclick="setUrmFilter(this)">Other</div>
+          </div>
+          <span class="urm-count-label" id="urm-count-label">— accounts</span>
+        </div>
+        <div class="urm-table-wrap">
+          <table class="urm-table">
+            <thead><tr><th>User ID</th><th>Name</th><th>Institution</th><th>Role</th><th>Sessions</th><th>Last Active</th><th>Actions</th></tr></thead>
+            <tbody id="urm-tbody"></tbody>
+          </table>
+        </div>
+        <div class="urm-modal-overlay" id="urm-modal" style="display:none" onclick="closeUrmModal(event)">
+          <div class="urm-modal">
+            <div class="urm-modal-hdr"><span>Edit User Role</span><button class="urm-modal-close" onclick="closeUrmModal()">✕</button></div>
+            <div class="urm-modal-body">
+              <div class="urm-modal-uid" id="urm-modal-uid"></div>
+              <div class="urm-modal-name" id="urm-modal-name"></div>
+              <div class="urm-modal-lbl">Assign Role</div>
+              <div class="chip-group" id="urm-modal-roles" style="flex-wrap:wrap;gap:8px;margin-bottom:18px">
+                <div class="chip" data-val="Dietitian"  onclick="selectUrmRole(this)">🥗 Dietitian</div>
+                <div class="chip" data-val="Clinician"  onclick="selectUrmRole(this)">🩺 Clinician</div>
+                <div class="chip" data-val="Nurse"      onclick="selectUrmRole(this)">💊 Nurse</div>
+                <div class="chip" data-val="Student"    onclick="selectUrmRole(this)">🎓 Student</div>
+                <div class="chip" data-val="Researcher" onclick="selectUrmRole(this)">🔬 Researcher</div>
+                <div class="chip" data-val="Other"      onclick="selectUrmRole(this)">👤 Other</div>
+              </div>
+              <button class="urm-save-btn" onclick="saveUserRole()">💾 Save Role</button>
+            </div>
+          </div>
+        </div>
+      </div><!-- /users -->
+
+      <!-- ══════ ERROR LOG ══════ -->
+      <div class="tab-pane" id="tab-errors">
+        <div class="content-header"><div class="page-title">Error Log <span>Crash &amp; runtime errors</span></div></div>
+        <div class="err-toolbar">
+          <div class="chip-group" id="err-level-filter">
+            <div class="chip active" data-val="all"   onclick="setErrFilter(this)">All</div>
+            <div class="chip"        data-val="error" onclick="setErrFilter(this)">🔴 Error</div>
+            <div class="chip"        data-val="warn"  onclick="setErrFilter(this)">🟡 Warning</div>
+            <div class="chip"        data-val="info"  onclick="setErrFilter(this)">🔵 Info</div>
+          </div>
+          <button class="err-clear-btn" onclick="clearErrorLog()">🗑 Clear Log</button>
+          <span class="err-count-label" id="err-count-label">— entries</span>
+        </div>
+        <div class="err-log-wrap" id="err-log-wrap">
+          <div class="err-empty" id="err-empty">No errors recorded this session.</div>
+        </div>
+      </div><!-- /errors -->
+
+      <!-- ══════ OFFLINE USAGE ══════ -->
+      <div class="tab-pane" id="tab-offline">
+        <div class="content-header"><div class="page-title">Offline Usage <span>Connectivity tracker</span></div></div>
+        <div class="kpi-grid" style="margin-bottom:18px">
+          <div class="kpi-card c-teal"  data-icon="📋"><div class="kpi-label">Total Sessions</div>  <div class="kpi-val" id="off-total">—</div><div class="kpi-sub">All time</div></div>
+          <div class="kpi-card c-amber" data-icon="📶"><div class="kpi-label">Offline Sessions</div> <div class="kpi-val" id="off-count">—</div><div class="kpi-sub">No connectivity</div></div>
+          <div class="kpi-card c-green" data-icon="🌐"><div class="kpi-label">Online Sessions</div>  <div class="kpi-val" id="off-online">—</div><div class="kpi-sub">Connected</div></div>
+          <div class="kpi-card c-blue"  data-icon="%"><div class="kpi-label">Offline Rate</div>      <div class="kpi-val" id="off-rate">—</div><div class="kpi-sub">% of all sessions</div></div>
+        </div>
+        <div class="section-hdr"><span class="section-title">By Institution</span><div class="section-line"></div></div>
+        <div class="off-inst-list" id="off-inst-list"></div>
+        <div class="section-hdr" style="margin-top:18px"><span class="section-title">Recent Offline Sessions</span><div class="section-line"></div></div>
+        <div class="urm-table-wrap">
+          <table class="urm-table">
+            <thead><tr><th>Session ID</th><th>User</th><th>Institution</th><th>Module</th><th>Date</th><th>Mode</th></tr></thead>
+            <tbody id="off-tbody"></tbody>
+          </table>
+        </div>
+      </div><!-- /offline -->
+
   </div><!-- /dashboard-body -->
 
   <!-- BOTTOM TAB NAV — Analytics, Online, Sessions, Feedback -->
