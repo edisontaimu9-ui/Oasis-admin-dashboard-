@@ -258,6 +258,7 @@ function _attachFirestoreListeners() {
         _renderFeedback();
         _set('nb-feedback', allFeedback.length);
         _set('ttn-badge-feedback', allFeedback.length || '');
+        _set('home-feedback-count', allFeedback.length);
       }, err => console.warn('[Admin] feedback listener error:', err))
   );
 
@@ -912,6 +913,7 @@ function _renderFeedback() {
   _set('fb-count-label', allFeedback.length + ' total submissions');
   _set('nb-feedback',      allFeedback.length);
   _set('ttn-badge-feedback', allFeedback.length || '');
+  _set('home-feedback-count', allFeedback.length);
 
   // Emoji counts
   const counts = { '👍':0, '❤️':0, '😐':0, '🐛':0, '💡':0 };
