@@ -130,13 +130,32 @@ const CHART_DEFAULTS = {
   }
 };
 
-/* ═══════════════════════════════════════════════════════════
-   CHART HELPERS
-═══════════════════════════════════════════════════════════ */
+function _getChartThemeDefaults() {
+  const style = getComputedStyle(document.documentElement);
+  const surface  = style.getPropertyValue('--surface').trim()  || '#080f1e';
+  const textDim  = style.getPropertyValue('--text-dim').trim() || '#6b82a0';
+  const text     = style.getPropertyValue('--text').trim()     || '#c8d8f0';
+  const border   = style.getPropertyValue('--border2').trim()  || 'rgba(255,255,255,0.12)';
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: textDim, font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 10 } },
+      tooltip: { backgroundColor: surface, borderColor: border, borderWidth: 1, titleColor: text, bodyColor: textDim, titleFont: { family: 'JetBrains Mono' }, bodyFont: { family: 'JetBrains Mono', size: 10 } }
+    }
+  };
+}
+
+
 function makeChart(id, cfg) {
   if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
   const ctx = document.getElementById(id);
   if (!ctx) return;
+  const td = _getChartThemeDefaults();
+  cfg.options = cfg.options || {};
+  cfg.options.responsive = true;
+  cfg.options.maintainAspectRatio = false;
+  cfg.options.plugins = { ...td.plugins, ...(cfg.options.plugins || {}) };
   _charts[id] = new Chart(ctx, cfg);
 }
 
@@ -1306,6 +1325,29 @@ function applyAppearance() {
   document.body.classList.toggle('compact', !!compact);
   const compToggle = document.getElementById('toggle-compact');
   if (compToggle) compToggle.checked = !!compact;
+
+  // Apply theme-light class for CSS overrides
+  document.body.classList.toggle('theme-light', resolvedTheme === 'light');
+
+  // Update header toggle icon
+  const themeIcons = { dark:'🌙', light:'☀️', amoled:'⬛', hc:'♿', auto:'💻' };
+  const icon = document.getElementById('hdr-theme-icon');
+  if (icon) icon.textContent = themeIcons[theme] || '🌙';
+}
+
+/* ── cycleTheme — header toggle button (dark → light → amoled → dark) ── */
+function cycleTheme() {
+  const order = ['dark', 'light', 'amoled', 'hc', 'auto'];
+  const cur = APPEARANCE.theme;
+  const next = order[(order.indexOf(cur) + 1) % order.length];
+  APPEARANCE.theme = next;
+  applyAppearance();
+  _saveAppearance();
+  _syncAppearanceUI();
+  // Re-render charts so axis/tooltip colors update
+  setTimeout(() => { _renderOverviewCharts(); _renderAnalyticsCharts(); }, 80);
+  const names = { dark:'Dark', light:'Light', amoled:'AMOLED', hc:'High Contrast', auto:'Auto' };
+  showToast(`Theme: ${names[next]}`, 'info');
 }
 
 /* ── setSetting — called by all controls ── */
