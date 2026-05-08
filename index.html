@@ -19,6 +19,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
@@ -500,6 +501,81 @@
               </div>
             </div>
 
+
+            <!-- ── PUSH NOTIFICATIONS ── -->
+            <div class=\"stg-card push-notif-card\" style=\"margin-bottom:12px\">
+              <div class=\"stg-card-hdr\">🔔 Push Notifications</div>
+              <div class=\"push-notif-body\">
+
+                <!-- Status row -->
+                <div class=\"pn-status-row\">
+                  <div class=\"pn-status-dot\" id=\"pn-status-dot\"></div>
+                  <span class=\"pn-status-text\" id=\"pn-status-text\">Checking support…</span>
+                  <span class=\"pn-badge\" id=\"pn-sub-badge\" style=\"display:none\">● Subscribed</span>
+                </div>
+
+                <!-- VAPID Key -->
+                <div class=\"pn-field-group\">
+                  <label class=\"pn-field-label\">VAPID Public Key</label>
+                  <div class=\"pn-key-row\">
+                    <input class=\"pn-key-input\" id=\"pn-vapid-input\"
+                           placeholder=\"Paste your VAPID public key (Base64url)…\"
+                           spellcheck=\"false\" autocomplete=\"off\">
+                    <button class=\"pn-btn-sm\" onclick=\"pnSaveVapid()\">Save</button>
+                  </div>
+                  <div class=\"pn-field-hint\">Generate a key pair at <strong>web-push-codelab.glitch.me</strong> or via <code>web-push generate-vapid-keys</code></div>
+                </div>
+
+                <!-- Subscriber table -->
+                <div class=\"pn-section-hdr\">
+                  <span>Subscribers</span>
+                  <span class=\"pn-sub-count\" id=\"pn-sub-count\">0</span>
+                </div>
+                <div class=\"pn-table-wrap\">
+                  <table class=\"pn-table\">
+                    <thead>
+                      <tr>
+                        <th>Key pair</th>
+                        <th>Date added</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id=\"pn-subs-tbody\">
+                      <tr><td colspan=\"4\"><div class=\"pn-empty\">No subscribers yet</div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Subscribe / Test / Send actions -->
+                <div class=\"pn-actions-row\">
+                  <button class=\"pn-btn-main\" id=\"pn-subscribe-btn\" onclick=\"pnSubscribeThis()\">
+                    🔔 Subscribe This Browser
+                  </button>
+                  <button class=\"pn-btn-ghost\" id=\"pn-test-btn\" onclick=\"pnTestNotif()\" disabled>
+                    ⚡ Test Notification
+                  </button>
+                </div>
+
+                <!-- Broadcast form -->
+                <div class=\"pn-broadcast-wrap\" id=\"pn-broadcast-wrap\">
+                  <div class=\"pn-section-hdr\" style=\"margin-top:12px\">
+                    <span>Broadcast to All Subscribers</span>
+                  </div>
+                  <div class=\"pn-bcast-row\">
+                    <input class=\"pn-bcast-title\" id=\"pn-bcast-title\" placeholder=\"Notification title…\" maxlength=\"80\">
+                    <input class=\"pn-bcast-body\"  id=\"pn-bcast-body\"  placeholder=\"Message body…\"       maxlength=\"200\">
+                  </div>
+                  <button class=\"pn-btn-bcast\" id=\"pn-bcast-btn\" onclick=\"pnBroadcast()\">
+                    📣 SEND TO ALL SUBSCRIBERS
+                  </button>
+                </div>
+
+                <div class=\"pn-log\" id=\"pn-log\">
+                  <span class=\"pn-log-info\">Ready.</span>
+                </div>
+              </div>
+            </div>
 
             <!-- ── UPDATE MANAGER ── -->
             <div class="upd-mgr-card">
