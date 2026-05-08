@@ -1028,6 +1028,7 @@ body.bg-aurora::before {
 .upd-mgr-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; overflow: hidden; margin-bottom: 12px;
+  max-width: 680px;
 }
 .upd-mgr-hdr {
   display: flex; align-items: center; gap: 10px;

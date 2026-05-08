@@ -205,6 +205,45 @@
             <div class="qnav-arr">→</div>
           </div>
         </div>
+
+        <!-- ── UPDATE MANAGER (home) ── -->
+        <div class="section-hdr"><span class="section-title">Updates Manager</span><div class="section-line"></div></div>
+        <div class="upd-mgr-card">
+          <div class="upd-mgr-hdr">
+            📦 App Update Manager
+            <span class="upd-ver-badge">1.0.0</span>
+            <span class="upd-date-badge">April 2026</span>
+          </div>
+
+          <!-- Admin self-update status -->
+          <div class="upd-status-row">
+            <div class="upd-status-dot checking" id="upd-status-dot"></div>
+            <span class="upd-status-text" id="upd-status-text">Checking for admin updates…</span>
+            <button class="upd-check-btn" onclick="checkAdminUpdate()">↻ Check</button>
+          </div>
+          <div class="upd-actions-row">
+            <button class="upd-apply-now-btn" id="upd-apply-btn" onclick="applyAdminUpdate()" disabled>
+              ↻ APPLY UPDATE &amp; RELOAD
+            </button>
+          </div>
+
+          <!-- Push update to MiNutriQ PWA -->
+          <div class="push-upd-section">
+            <div class="push-upd-label">Push Update to MiNutriQ PWA</div>
+            <div class="push-upd-row">
+              <input  class="push-upd-input"    id="push-ver-input"   placeholder="e.g. 1.2.2"
+                      value="" maxlength="20" spellcheck="false">
+              <textarea class="push-upd-textarea" id="push-notes-input"
+                        placeholder="Release notes… (shown to users in update prompt)"></textarea>
+            </div>
+            <button class="push-upd-btn" id="push-upd-btn" onclick="pushUpdateToNTP()">
+              <span>🚀</span> PUSH UPDATE TO ALL CLIENTS
+            </button>
+            <div class="push-upd-log" id="push-upd-log">
+              <span class="log-info">Ready. Enter version + notes then push.</span>
+            </div>
+          </div>
+        </div>
       </div><!-- /home -->
 
       <!-- ══════ OVERVIEW ══════ -->
@@ -500,44 +539,6 @@
               </div>
             </div>
 
-
-            <!-- ── UPDATE MANAGER ── -->
-            <div class="upd-mgr-card">
-              <div class="upd-mgr-hdr">
-                📦 App Update Manager
-                <span class="upd-ver-badge">1.0.0</span>
-                <span class="upd-date-badge">April 2026</span>
-              </div>
-
-              <!-- Admin self-update status -->
-              <div class="upd-status-row">
-                <div class="upd-status-dot checking" id="upd-status-dot"></div>
-                <span class="upd-status-text" id="upd-status-text">Checking for admin updates…</span>
-                <button class="upd-check-btn" onclick="checkAdminUpdate()">↻ Check</button>
-              </div>
-              <div class="upd-actions-row">
-                <button class="upd-apply-now-btn" id="upd-apply-btn" onclick="applyAdminUpdate()" disabled>
-                  ↻ APPLY UPDATE &amp; RELOAD
-                </button>
-              </div>
-
-              <!-- Push update to MiNutriQ PWA -->
-              <div class="push-upd-section">
-                <div class="push-upd-label">Push Update to MiNutriQ PWA</div>
-                <div class="push-upd-row">
-                  <input  class="push-upd-input"    id="push-ver-input"   placeholder="e.g. 1.2.2"
-                          value="" maxlength="20" spellcheck="false">
-                  <textarea class="push-upd-textarea" id="push-notes-input"
-                            placeholder="Release notes… (shown to users in update prompt)"></textarea>
-                </div>
-                <button class="push-upd-btn" id="push-upd-btn" onclick="pushUpdateToNTP()">
-                  <span>🚀</span> PUSH UPDATE TO ALL CLIENTS
-                </button>
-                <div class="push-upd-log" id="push-upd-log">
-                  <span class="log-info">Ready. Enter version + notes then push.</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
