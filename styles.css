@@ -745,7 +745,7 @@ body.bg-aurora::before {
 }
 
 /* ─────────────────────────────────────────
-   SPLASH SCREEN  (matches MiNutriQ main app)
+   SPLASH SCREEN  (matches Oasis main app)
 ───────────────────────────────────────── */
 #admin-splash {
   position: fixed; inset: 0; z-index: 99999;

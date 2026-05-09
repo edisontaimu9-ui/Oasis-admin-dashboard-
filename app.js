@@ -22,7 +22,7 @@
 })();
 
 /* ═══════════════════════════════════════════════════════════
-   FIREBASE — MiNutriQ project (nutri-track-pro-c11c5)
+   FIREBASE — Oasis project (nutri-track-pro-c11c5)
    Same credentials as the main app.
 ═══════════════════════════════════════════════════════════ */
 const FIREBASE_CONFIG = {
@@ -304,7 +304,7 @@ function _attachRTDBListeners() {
   if (!rtdb) return;
 
   // ── 1. PRESENCE — /presence value listener ─────────────────
-  // Fires on every write from any MiNutriQ client (online / offline / heartbeat).
+  // Fires on every write from any Oasis client (online / offline / heartbeat).
   // We merge these into allPresence so KPIs and the Live Users table
   // reflect RTDB's onDisconnect accuracy rather than Firestore polling lag.
   rtdb.ref('/presence').on('value', (snap) => {
@@ -317,7 +317,7 @@ function _attachRTDBListeners() {
   });
 
   // ── 2. /system/app_version — confirm push reached RTDB ─────
-  // Admin writes here in pushUpdateToNTP(); this read-back confirms (MiNutriQ)
+  // Admin writes here in pushUpdateToNTP(); this read-back confirms (Oasis)
   // the RTDB write succeeded and logs the current live version.
   rtdb.ref('/system/app_version').on('value', (snap) => {
     const v = snap.val();
@@ -1453,7 +1453,7 @@ document.addEventListener('keydown', e => {
 /* ═══════════════════════════════════════════════════════════
    PWA — ICON GENERATOR (runtime canvas-based)
 ═══════════════════════════════════════════════════════════ */
-// Preload the MiNutriQ logo for use in icon generation
+// Preload the Oasis logo for use in icon generation
 const _NTP_LOGO_B64 = "data:image/png;base64,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";
 const _ntpLogoImg = new Image();
 _ntpLogoImg.src = _NTP_LOGO_B64;
@@ -1541,7 +1541,7 @@ function _generateScreenshot(w, h, formFactor) {
     ctx.beginPath(); ctx.arc(u * 20, h * 0.035, u * 10, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = '#c8d8f0'; ctx.font = `bold ${u * 8}px 'JetBrains Mono',monospace`;
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('MiNutriQ', u * 34, h * 0.035);
+    ctx.fillText('Oasis', u * 34, h * 0.035);
     ctx.fillStyle = '#f0b429'; ctx.fillText(' Pro', u * 34 + u * 44, h * 0.035);
 
     // Status pill
@@ -1687,7 +1687,7 @@ function _generateScreenshot(w, h, formFactor) {
     ctx.beginPath(); ctx.arc(u * 18, h * 0.035, u * 9, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = '#c8d8f0'; ctx.font = `bold ${u * 9}px 'Space Grotesk',sans-serif`;
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('MiNutriQ', u * 32, h * 0.033);
+    ctx.fillText('Oasis', u * 32, h * 0.033);
     ctx.fillStyle = '#f0b429'; ctx.fillText('Admin', u * 32 + u * 49, h * 0.033);
 
     // KPI cards (2×2)
@@ -1812,12 +1812,12 @@ function _injectManifest() {
 
   // Screenshots (wide = desktop, narrow = mobile)
   const screenshots = [
-    { src: _toBlobURL(_generateScreenshot(1280, 720, 'wide')),   sizes: '1280x720', type: 'image/png', form_factor: 'wide',   label: 'MiNutriQ Admin — Overview Dashboard' },
-    { src: _toBlobURL(_generateScreenshot(390,  844, 'narrow')), sizes: '390x844',  type: 'image/png', form_factor: 'narrow', label: 'MiNutriQ Admin — Mobile View' },
+    { src: _toBlobURL(_generateScreenshot(1280, 720, 'wide')),   sizes: '1280x720', type: 'image/png', form_factor: 'wide',   label: 'Oasis Admin — Overview Dashboard' },
+    { src: _toBlobURL(_generateScreenshot(390,  844, 'narrow')), sizes: '390x844',  type: 'image/png', form_factor: 'narrow', label: 'Oasis Admin — Mobile View' },
   ];
 
   const manifest = {
-    name: `MiNutriQ — Admin Console ${ADMIN_VERSION}`, short_name: 'MiNutriQ',
+    name: `Oasis — Admin Dashboard ${ADMIN_VERSION}`, short_name: 'Oasis',
     description: 'Clinical nutrition admin dashboard', start_url: './',
     display: 'standalone', background_color: '#020510', theme_color: '#1de9d4',
     icons: [...iconsAny, ...iconsMaskable],
@@ -1830,7 +1830,7 @@ function _injectManifest() {
 function _registerSW() {
   if (!('serviceWorker' in navigator)) return;
   const swCode = `
-// PWABuilder — Offline page service worker (adapted for MiNutriQ Admin)
+// PWABuilder — Offline page service worker (adapted for Oasis Admin)
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js');
 
 const CACHE = "nutritrack-admin-pwa";
@@ -1998,13 +1998,13 @@ function dismissUpdateBanner() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PUSH UPDATE TO MiNutriQ PWA
+   PUSH UPDATE TO Oasis PWA
    Two-channel approach:
      A) Firestore  system/app_version  — persists for all clients
         (including ones that open the app later after deploy)
      B) BroadcastChannel 'ntp-pwa-update' — instant signal to
         any NTP tab currently open in the same browser session.
-   The MiNutriQ main app must listen to both channels
+   The Oasis main app must listen to both channels
    (see integration note written to the push-upd-log).
 ═══════════════════════════════════════════════════════════ */
 async function pushUpdateToNTP() {
@@ -2028,7 +2028,7 @@ async function pushUpdateToNTP() {
     version,
     notes     : notes || '—',
     releasedAt: new Date().toISOString(),
-    pushedBy  : 'MiNutriQ Admin Console',
+    pushedBy  : 'Oasis Admin Dashboard',
     adminVersion: ADMIN_VERSION,
   };
 
@@ -2055,7 +2055,7 @@ async function pushUpdateToNTP() {
     bc.postMessage({ type: 'UPDATE_AVAILABLE', ...payload });
     bc.close();
     broadcastOk = true;
-    _pushLog(log, 'ok', '✓ BroadcastChannel · signal sent to open MiNutriQ tabs.');
+    _pushLog(log, 'ok', '✓ BroadcastChannel · signal sent to open Oasis tabs.');
   } catch (err) {
     _pushLog(log, 'warn', '⚠ BroadcastChannel not supported: ' + err.message);
   }
@@ -2084,8 +2084,8 @@ async function pushUpdateToNTP() {
       rtdbOk       ? 'RTDB'            : null,
     ].filter(Boolean).join(' + ');
     _pushLog(log, 'ok',
-      `✓ Update v${version} pushed via ${channels}. MiNutriQ clients will prompt users on next load or tab focus.`);
-    showToast(`Update v${version} pushed to MiNutriQ ✓`);
+      `✓ Update v${version} pushed via ${channels}. Oasis clients will prompt users on next load or tab focus.`);
+    showToast(`Update v${version} pushed to Oasis ✓`);
     // Clear inputs after success
     versionInput.value = '';
     notesInput.value   = '';
