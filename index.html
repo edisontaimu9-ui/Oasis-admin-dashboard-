@@ -88,7 +88,7 @@
     <div class="login-badge">RESTRICTED ACCESS</div>
     <div class="login-field">
       <label>Admin Password</label>
-      <input type="password" id="login-pass" placeholder="Enter admin password…" autocomplete="current-password">
+      <input type="password" id="login-pass" placeholder="Enter admin password…" autocomplete="current-password" oninput="doLogin()">
     </div>
     <button class="login-btn" onclick="doLogin()">AUTHENTICATE →</button>
     <div id="login-err"></div>

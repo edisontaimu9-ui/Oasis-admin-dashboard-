@@ -146,13 +146,16 @@ function makeChart(id, cfg) {
 function doLogin() {
   const pass = document.getElementById('login-pass').value;
   if (pass === ADMIN_PASS) {
+    document.getElementById('login-err').textContent = '';
     sessionStorage.setItem('nt_admin_auth', '1');
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     initFirestoreListeners();
-  } else {
+  } else if (pass.length >= ADMIN_PASS.length) {
     document.getElementById('login-err').textContent = 'Incorrect password. Access denied.';
     document.getElementById('login-pass').value = '';
+  } else {
+    document.getElementById('login-err').textContent = '';
   }
 }
 
