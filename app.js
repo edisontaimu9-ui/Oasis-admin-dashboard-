@@ -2107,6 +2107,40 @@ function _pushLog(el, type, msg) {
   el.scrollTop = el.scrollHeight;
 }
 
+/* ── PWA INSTALL PROMPT ── */
+let _deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  const btn = document.getElementById('btn-pwa-install');
+  const sep = document.getElementById('sep-install');
+  if (btn) btn.style.display = '';
+  if (sep) sep.style.display = '';
+});
+
+window.addEventListener('appinstalled', () => {
+  _deferredInstallPrompt = null;
+  const btn = document.getElementById('btn-pwa-install');
+  const sep = document.getElementById('sep-install');
+  if (btn) btn.style.display = 'none';
+  if (sep) sep.style.display = 'none';
+});
+
+function triggerPWAInstall() {
+  if (!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  _deferredInstallPrompt.userChoice.then((choice) => {
+    if (choice.outcome === 'accepted') {
+      _deferredInstallPrompt = null;
+      const btn = document.getElementById('btn-pwa-install');
+      const sep = document.getElementById('sep-install');
+      if (btn) btn.style.display = 'none';
+      if (sep) sep.style.display = 'none';
+    }
+  });
+}
+
 /* ── BOOT ── */
 (function boot() {
   _injectManifest();
