@@ -1820,9 +1820,17 @@ function _injectManifest() {
   ];
 
   const manifest = {
-    name: `Oasis — Admin Dashboard ${ADMIN_VERSION}`, short_name: 'Oasis',
-    description: 'Clinical nutrition admin dashboard', start_url: './',
-    display: 'standalone', background_color: '#020510', theme_color: '#1de9d4',
+    id: '/oasis-admin/',
+    name: `Oasis — Admin Dashboard ${ADMIN_VERSION}`, short_name: 'Oasis Admin',
+    description: 'Clinical nutrition admin dashboard',
+    start_url: './',
+    scope: './',
+    display: 'standalone',
+    background_color: '#020510',
+    theme_color: '#1de9d4',
+    orientation: 'any',
+    lang: 'en',
+    categories: ['medical', 'health', 'productivity'],
     icons: [...iconsAny, ...iconsMaskable],
     screenshots,
   };
@@ -1832,48 +1840,10 @@ function _injectManifest() {
 
 function _registerSW() {
   if (!('serviceWorker' in navigator)) return;
-  const swCode = `
-// PWABuilder — Offline page service worker (adapted for Oasis Admin)
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js');
-
-const CACHE = "nutritrack-admin-pwa";
-const offlineFallbackPage = "./";
-
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
-
-self.addEventListener('install', async (event) => {
-  event.waitUntil(
-    caches.open(CACHE)
-      .then((cache) => cache.add(offlineFallbackPage))
-  );
-});
-
-if (workbox.navigationPreload.isSupported()) {
-  workbox.navigationPreload.enable();
-}
-
-self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith((async () => {
-      try {
-        const preloadResp = await event.preloadResponse;
-        if (preloadResp) return preloadResp;
-        return await fetch(event.request);
-      } catch (error) {
-        const cache = await caches.open(CACHE);
-        const cachedResp = await cache.match(offlineFallbackPage);
-        return cachedResp;
-      }
-    })());
-  }
-});
-  `.trim();
-  const swBlob = new Blob([swCode], { type: 'application/javascript' });
-  navigator.serviceWorker.register(URL.createObjectURL(swBlob), { scope: './' })
+  // sw.js must be deployed as a static file at the same path as index.html.
+  // A blob: URL SW is restricted to a blob: origin and will fail scope checks
+  // on Firefox/Safari and is unreliable on Chrome — never use blob URLs for SWs.
+  navigator.serviceWorker.register('./sw.js', { scope: './' })
     .then(r => console.log('[SW] Registered ✓', r.scope))
     .catch(e => console.warn('[SW] Failed:', e));
 }
