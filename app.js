@@ -1840,9 +1840,6 @@ function _injectManifest() {
 
 function _registerSW() {
   if (!('serviceWorker' in navigator)) return;
-  // sw.js must be deployed as a static file at the same path as index.html.
-  // A blob: URL SW is restricted to a blob: origin and will fail scope checks
-  // on Firefox/Safari and is unreliable on Chrome — never use blob URLs for SWs.
   navigator.serviceWorker.register('./sw.js', { scope: './' })
     .then(r => console.log('[SW] Registered ✓', r.scope))
     .catch(e => console.warn('[SW] Failed:', e));
@@ -2079,25 +2076,35 @@ function _pushLog(el, type, msg) {
 
 /* ── PWA INSTALL PROMPT ── */
 let _deferredInstallPrompt = null;
+const _POPUP_DISMISSED_KEY = 'oasis_install_popup_dismissed';
 
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  _deferredInstallPrompt = e;
-  const btn = document.getElementById('btn-pwa-install');
-  const sep = document.getElementById('sep-install');
-  if (btn) btn.style.display = '';
-  if (sep) sep.style.display = '';
-});
+// Show the popup (called on beforeinstallprompt, or manually via header button)
+function showPWAInstallPopup() {
+  const popup = document.getElementById('pwa-install-popup');
+  if (!popup) return;
+  // Draw the app icon into the popup canvas using the same generator
+  try {
+    const iconCanvas = document.getElementById('pwa-install-icon');
+    if (iconCanvas && typeof _generateIcon === 'function') {
+      const src = _generateIcon(52);
+      const img = new Image();
+      img.onload = () => iconCanvas.getContext('2d').drawImage(img, 0, 0, 52, 52);
+      img.src = src;
+    }
+  } catch(e) { /* non-critical */ }
+  popup.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
 
-window.addEventListener('appinstalled', () => {
-  _deferredInstallPrompt = null;
-  const btn = document.getElementById('btn-pwa-install');
-  const sep = document.getElementById('sep-install');
-  if (btn) btn.style.display = 'none';
-  if (sep) sep.style.display = 'none';
-});
+function closePWAInstallPopup() {
+  const popup = document.getElementById('pwa-install-popup');
+  if (popup) popup.style.display = 'none';
+  document.body.style.overflow = '';
+  sessionStorage.setItem(_POPUP_DISMISSED_KEY, '1');
+}
 
-function triggerPWAInstall() {
+function confirmPWAInstall() {
+  closePWAInstallPopup();
   if (!_deferredInstallPrompt) return;
   _deferredInstallPrompt.prompt();
   _deferredInstallPrompt.userChoice.then((choice) => {
@@ -2110,6 +2117,43 @@ function triggerPWAInstall() {
     }
   });
 }
+
+// Legacy header button still works
+function triggerPWAInstall() {
+  if (_deferredInstallPrompt) {
+    showPWAInstallPopup();
+  }
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  // Show header button
+  const btn = document.getElementById('btn-pwa-install');
+  const sep = document.getElementById('sep-install');
+  if (btn) btn.style.display = '';
+  if (sep) sep.style.display = '';
+  // Show popup automatically unless dismissed this session
+  if (!sessionStorage.getItem(_POPUP_DISMISSED_KEY)) {
+    // Small delay so the app finishes rendering first
+    setTimeout(showPWAInstallPopup, 1200);
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  _deferredInstallPrompt = null;
+  closePWAInstallPopup();
+  const btn = document.getElementById('btn-pwa-install');
+  const sep = document.getElementById('sep-install');
+  if (btn) btn.style.display = 'none';
+  if (sep) sep.style.display = 'none';
+});
+
+// Close popup on overlay click (outside modal)
+window.addEventListener('click', (e) => {
+  const popup = document.getElementById('pwa-install-popup');
+  if (e.target === popup) closePWAInstallPopup();
+});
 
 /* ── BOOT ── */
 (function boot() {

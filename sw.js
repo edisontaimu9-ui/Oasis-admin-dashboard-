@@ -1,26 +1,17 @@
-// Oasis Admin — Service Worker (static file, not blob URL)
-// Must be served from the same origin as the app.
-
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js');
 
 const CACHE = 'nutritrack-admin-pwa-v1';
 const offlineFallbackPage = './';
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('install', async (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.add(offlineFallbackPage))
-  );
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.add(offlineFallbackPage)));
 });
 
-if (workbox.navigationPreload.isSupported()) {
-  workbox.navigationPreload.enable();
-}
+if (workbox.navigationPreload.isSupported()) workbox.navigationPreload.enable();
 
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
@@ -31,8 +22,7 @@ self.addEventListener('fetch', (event) => {
         return await fetch(event.request);
       } catch (error) {
         const cache = await caches.open(CACHE);
-        const cachedResp = await cache.match(offlineFallbackPage);
-        return cachedResp;
+        return await cache.match(offlineFallbackPage);
       }
     })());
   }

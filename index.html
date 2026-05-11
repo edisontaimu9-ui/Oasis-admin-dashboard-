@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Oasis — Admin Dashboard</title>
 <meta name="description" content="Oasis — Clinical Nutrition Support Tool Admin Dashboard">
-<meta name="theme-color" content="#1de9d4">
+<meta name="theme-color" content="#080f1e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -651,5 +651,37 @@
      SCRIPTS
 ═══════════════════════════════════════════════════════════ -->
 <script src="app.js"></script>
+
+<!-- ════════════════ PWA INSTALL POPUP ════════════════ -->
+<div id="pwa-install-popup" class="pwa-install-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title">
+  <div class="pwa-install-modal">
+    <div class="pwa-install-glow"></div>
+    <div class="pwa-install-header">
+      <div class="pwa-install-icon-wrap">
+        <canvas id="pwa-install-icon" width="52" height="52"></canvas>
+      </div>
+      <div class="pwa-install-title-block">
+        <div class="pwa-install-eyebrow">Install App</div>
+        <div class="pwa-install-title" id="pwa-install-title">Oasis Admin</div>
+      </div>
+      <button class="pwa-install-close" onclick="closePWAInstallPopup()" aria-label="Close">✕</button>
+    </div>
+    <div class="pwa-install-body">
+      <p class="pwa-install-desc">Add Oasis Admin to your home screen for fast, offline-capable access — no browser UI, full screen.</p>
+      <ul class="pwa-install-perks">
+        <li><span class="pwa-perk-icon">⚡</span>Instant launch, no browser chrome</li>
+        <li><span class="pwa-perk-icon">📶</span>Works offline with cached data</li>
+        <li><span class="pwa-perk-icon">🔔</span>Push notification support</li>
+      </ul>
+    </div>
+    <div class="pwa-install-footer">
+      <button class="pwa-install-btn-dismiss" onclick="closePWAInstallPopup()">Not now</button>
+      <button class="pwa-install-btn-install" id="pwa-popup-install-btn" onclick="confirmPWAInstall()">
+        <span class="pwa-install-btn-icon">⬇</span> Install
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
