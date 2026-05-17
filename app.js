@@ -1140,6 +1140,7 @@ function switchTab(tab) {
   const ttnMap = {
     home: 'ttn-home',
     settings: 'ttn-settings',
+    developer: 'ttn-developer',
   };
   const ttnTarget = ttnMap[tab];
   if (ttnTarget) document.getElementById(ttnTarget)?.classList.add('active');
