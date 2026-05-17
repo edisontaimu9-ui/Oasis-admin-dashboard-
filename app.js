@@ -1155,7 +1155,7 @@ function switchTab(tab) {
   if (Array.isArray(btnTarget)) btnTarget.forEach(id => document.getElementById(id)?.classList.add('active'));
   else if (btnTarget) document.getElementById(btnTarget)?.classList.add('active');
 
-  const labels = { home:'Home', overview:'Overview', analytics:'Analytics', online:'Online', sessions:'Sessions', feedback:'Feedback', settings:'Settings', users:'Users', errors:'Error Log', offline:'Offline Usage' };
+  const labels = { home:'Home', overview:'Overview', analytics:'Analytics', online:'Online', sessions:'Sessions', feedback:'Feedback', settings:'Settings', users:'Users', errors:'Error Log', offline:'Offline Usage', developer:'Developer Profile' };
   document.getElementById('content-title').textContent = labels[tab] || tab;
 
   // Re-render charts when switching to chart tabs (canvas size may change)
@@ -1166,6 +1166,7 @@ function switchTab(tab) {
   if (tab === 'users')     { setTimeout(renderUsersTable, 50); }
   if (tab === 'errors')    { setTimeout(renderErrorLog, 50); }
   if (tab === 'offline')   { setTimeout(renderOfflineTab, 50); }
+  if (tab === 'developer') { setTimeout(devLoadProfile, 50); }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2430,4 +2431,250 @@ function renderOfflineTab() {
       </tr>
     `).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">No offline sessions found</td></tr>';
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DEVELOPER PROFILE
+═══════════════════════════════════════════════════════════ */
+
+// ── State ──────────────────────────────────────────────────
+let _devCroppedPhoto = '';   // final base64 string (400×400)
+let _devCropImage    = null; // HTMLImageElement for crop editor
+let _devCropX        = 0;
+let _devCropY        = 0;
+let _devDragStart    = null;
+
+// ── Load from Firestore & pre-fill ─────────────────────────
+async function devLoadProfile() {
+  try {
+    const db   = firebase.firestore();
+    const snap = await db.collection('app_config').doc('developer_profile').get();
+    if (!snap.exists) return;
+    const d = snap.data();
+    _safeSet('dev-name',        d.name        || '');
+    _safeSet('dev-role',        d.role        || '');
+    _safeSet('dev-institution', d.institution || '');
+    _safeSet('dev-bio',         d.bio         || '');
+    _safeSet('dev-email',       (d.links && d.links.email)    || '');
+    _safeSet('dev-github',      (d.links && d.links.github)   || '');
+    _safeSet('dev-linkedin',    (d.links && d.links.linkedin) || '');
+    _safeSet('dev-twitter',     (d.links && d.links.twitter)  || '');
+    if (d.photo) {
+      _devCroppedPhoto = d.photo;
+      _devApplyAvatarPreview(d.photo);
+    }
+  } catch (e) {
+    console.warn('[DevProfile] Load error:', e);
+  }
+}
+
+function _safeSet(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = val;
+}
+
+function _devApplyAvatarPreview(base64) {
+  const img  = document.getElementById('dev-avatar-img');
+  const ph   = document.querySelector('.dev-avatar-placeholder');
+  const rmbtn = document.getElementById('dev-remove-photo');
+  if (!img) return;
+  if (base64) {
+    img.src = base64;
+    img.style.display = 'block';
+    if (ph)    ph.style.display = 'none';
+    if (rmbtn) rmbtn.style.display = '';
+  } else {
+    img.src = '';
+    img.style.display = 'none';
+    if (ph)    ph.style.display = '';
+    if (rmbtn) rmbtn.style.display = 'none';
+  }
+}
+
+// ── Save to Firestore ───────────────────────────────────────
+async function devSaveProfile() {
+  const btn = document.getElementById('dev-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    const db   = firebase.firestore();
+    const data = {
+      name:        (document.getElementById('dev-name')?.value        || '').trim(),
+      role:        (document.getElementById('dev-role')?.value        || '').trim(),
+      institution: (document.getElementById('dev-institution')?.value || '').trim(),
+      bio:         (document.getElementById('dev-bio')?.value         || '').trim(),
+      photo:       _devCroppedPhoto || '',
+      links: {
+        email:    (document.getElementById('dev-email')?.value    || '').trim(),
+        github:   (document.getElementById('dev-github')?.value   || '').trim(),
+        linkedin: (document.getElementById('dev-linkedin')?.value || '').trim(),
+        twitter:  (document.getElementById('dev-twitter')?.value  || '').trim(),
+      }
+    };
+    await db.collection('app_config').doc('developer_profile').set(data, { merge: true });
+    showToast('Developer profile saved ✓', 'success');
+  } catch (e) {
+    showToast('Save failed: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 SAVE DEVELOPER PROFILE →'; }
+  }
+}
+
+// ── Remove photo ────────────────────────────────────────────
+function devRemovePhoto() {
+  _devCroppedPhoto = '';
+  _devApplyAvatarPreview('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// CROP EDITOR
+// ═══════════════════════════════════════════════════════════
+
+function devOpenCrop(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  // Reset input so same file can be re-selected
+  event.target.value = '';
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      _devCropImage = img;
+      _devCropX = 0;
+      _devCropY = 0;
+      document.getElementById('dev-zoom-slider').value   = 100;
+      document.getElementById('dev-rotate-slider').value = 0;
+      document.getElementById('dev-zoom-val').textContent   = '100%';
+      document.getElementById('dev-rotate-val').textContent = '0°';
+      document.getElementById('dev-crop-overlay').style.display = 'flex';
+      requestAnimationFrame(devDrawCrop);
+      _devBindCropDrag();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function devCloseCrop() {
+  document.getElementById('dev-crop-overlay').style.display = 'none';
+  _devCropImage = null;
+  _devUnbindCropDrag();
+}
+
+function devUpdateCrop() {
+  const zoomEl  = document.getElementById('dev-zoom-slider');
+  const rotEl   = document.getElementById('dev-rotate-slider');
+  document.getElementById('dev-zoom-val').textContent   = zoomEl.value  + '%';
+  document.getElementById('dev-rotate-val').textContent = rotEl.value   + '°';
+  devDrawCrop();
+}
+
+function devDrawCrop() {
+  const canvas = document.getElementById('dev-crop-canvas');
+  if (!canvas || !_devCropImage) return;
+  const stage = canvas.parentElement;
+  const size  = stage.clientWidth || 400;
+  canvas.width  = size;
+  canvas.height = size;
+  const ctx   = canvas.getContext('2d');
+  const zoom  = parseFloat(document.getElementById('dev-zoom-slider').value)  / 100;
+  const angle = parseFloat(document.getElementById('dev-rotate-slider').value) * Math.PI / 180;
+  const iw = _devCropImage.naturalWidth;
+  const ih = _devCropImage.naturalHeight;
+  const scale = Math.min(size / iw, size / ih) * zoom;
+  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  ctx.translate(size / 2 + _devCropX, size / 2 + _devCropY);
+  ctx.rotate(angle);
+  ctx.drawImage(_devCropImage, -iw * scale / 2, -ih * scale / 2, iw * scale, ih * scale);
+  ctx.restore();
+}
+
+// ── Drag to reposition ──────────────────────────────────────
+function _devBindCropDrag() {
+  const stage = document.getElementById('dev-crop-canvas');
+  if (!stage) return;
+  stage.addEventListener('mousedown',  _devDragDown);
+  stage.addEventListener('touchstart', _devDragDown, { passive: true });
+}
+
+function _devUnbindCropDrag() {
+  const stage = document.getElementById('dev-crop-canvas');
+  if (!stage) return;
+  stage.removeEventListener('mousedown',  _devDragDown);
+  stage.removeEventListener('touchstart', _devDragDown);
+  document.removeEventListener('mousemove', _devDragMove);
+  document.removeEventListener('mouseup',   _devDragUp);
+  document.removeEventListener('touchmove', _devDragMove);
+  document.removeEventListener('touchend',  _devDragUp);
+}
+
+function _devDragDown(e) {
+  const pt = e.touches ? e.touches[0] : e;
+  _devDragStart = { x: pt.clientX - _devCropX, y: pt.clientY - _devCropY };
+  document.addEventListener('mousemove', _devDragMove);
+  document.addEventListener('mouseup',   _devDragUp);
+  document.addEventListener('touchmove', _devDragMove, { passive: true });
+  document.addEventListener('touchend',  _devDragUp);
+}
+
+function _devDragMove(e) {
+  if (!_devDragStart) return;
+  const pt   = e.touches ? e.touches[0] : e;
+  _devCropX  = pt.clientX - _devDragStart.x;
+  _devCropY  = pt.clientY - _devDragStart.y;
+  devDrawCrop();
+}
+
+function _devDragUp() {
+  _devDragStart = null;
+  document.removeEventListener('mousemove', _devDragMove);
+  document.removeEventListener('mouseup',   _devDragUp);
+  document.removeEventListener('touchmove', _devDragMove);
+  document.removeEventListener('touchend',  _devDragUp);
+}
+
+// ── Save crop → 400×400 JPEG base64 ────────────────────────
+function devSaveCrop() {
+  const srcCanvas = document.getElementById('dev-crop-canvas');
+  if (!srcCanvas || !_devCropImage) return;
+
+  // Re-draw at 400×400 centred on the circle crop region
+  const OUT   = 400;
+  const stage = srcCanvas.parentElement;
+  const stageSize = stage.clientWidth || 400;
+  const ringDiam  = stageSize * 0.70; // matches CSS .dev-crop-ring width: 70%
+  const scale     = OUT / ringDiam;
+
+  const out = document.createElement('canvas');
+  out.width = out.height = OUT;
+  const ctx = out.getContext('2d');
+
+  // Clip to circle
+  ctx.beginPath();
+  ctx.arc(OUT / 2, OUT / 2, OUT / 2, 0, Math.PI * 2);
+  ctx.clip();
+
+  // Draw the same transform but scaled up to 400px
+  const zoom  = parseFloat(document.getElementById('dev-zoom-slider').value)  / 100;
+  const angle = parseFloat(document.getElementById('dev-rotate-slider').value) * Math.PI / 180;
+  const iw    = _devCropImage.naturalWidth;
+  const ih    = _devCropImage.naturalHeight;
+  const imgScale = Math.min(stageSize / iw, stageSize / ih) * zoom * scale;
+
+  ctx.save();
+  ctx.translate(OUT / 2 + _devCropX * scale, OUT / 2 + _devCropY * scale);
+  ctx.rotate(angle);
+  ctx.drawImage(_devCropImage, -iw * imgScale / 2, -ih * imgScale / 2, iw * imgScale, ih * imgScale);
+  ctx.restore();
+
+  // Prefer WebP, fall back to JPEG
+  let b64 = '';
+  try { b64 = out.toDataURL('image/webp', 0.88); } catch (_) {}
+  if (!b64 || b64 === 'data:,') { b64 = out.toDataURL('image/jpeg', 0.88); }
+
+  _devCroppedPhoto = b64;
+  _devApplyAvatarPreview(b64);
+  devCloseCrop();
+  showToast('Photo cropped — remember to Save Profile ✓', 'info');
 }
