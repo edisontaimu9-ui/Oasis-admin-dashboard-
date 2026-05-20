@@ -114,6 +114,7 @@ let globalStats     = {};
 
 let _sessionSearch = '';
 let _charts        = {};   // Chart.js instances, keyed by canvas id
+window._charts     = _charts;  // Shared reference — orientation_manager resizes on rotation
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -1846,6 +1847,39 @@ function _registerSW() {
     .then(r => console.log('[SW] Registered ✓', r.scope))
     .catch(e => console.warn('[SW] Failed:', e));
 }
+
+/* ── Orientation + keyboard glue ───────────────────────────
+   orientation_manager.js fires 'oasis:orientation' and tracks
+   keyboard state; here we wire up any app-level reactions.
+   ──────────────────────────────────────────────────────── */
+(function _bindOrientationHooks() {
+  /* Re-render charts and tabs on rotation */
+  document.addEventListener('oasis:orientation', function (e) {
+    const tab = document.querySelector('.tab-pane.active');
+    if (!tab) return;
+    const tabId = tab.id.replace(/^tab-/, '');
+    // Chart re-render already fired by orientation_manager;
+    // switchTab gives a full data+chart refresh on complex tabs.
+    setTimeout(() => switchTab(tabId), 200);
+  });
+
+  /* Toggle .keyboard-open on body for CSS keyboard-aware rules */
+  if (window.visualViewport) {
+    const THRESH = 140;
+    let baseH    = window.visualViewport.height;
+
+    window.visualViewport.addEventListener('resize', function () {
+      const h    = window.visualViewport.height;
+      const diff = baseH - h;
+      if (diff > THRESH) {
+        document.body.classList.add('keyboard-open');
+      } else {
+        document.body.classList.remove('keyboard-open');
+        baseH = h;
+      }
+    });
+  }
+})();
 
 
 /* ── SPLASH SCREEN DISMISS ── */

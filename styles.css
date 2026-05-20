@@ -1731,3 +1731,282 @@ body.bg-aurora::before {
   transition: all .15s;
 }
 .dev-crop-save:hover { background: rgba(29,233,212,0.25); }
+
+
+/* ═══════════════════════════════════════════════════════════
+   ORIENTATION & VIEWPORT — orientation_manager.js companion
+   ═══════════════════════════════════════════════════════════
+   • Uses --vh (set by JS) instead of 100vh to survive mobile
+     browser chrome, notch, and soft-keyboard resize events.
+   • Landscape-compact mode collapses the header/status bar.
+   • Safe-area insets (--sai-*) keep content away from notches
+     and the iOS home indicator in PWA standalone mode.
+   • .rotating on <body> enables smooth cross-fade transitions
+     for the layout during device rotation.
+   ─────────────────────────────────────────────────────────── */
+
+/* ── 1. Real-viewport height overrides ──────────────────── */
+
+/*
+ * Override the three height calculations that use 100vh.
+ * The --vh variable is 1% of the real visible viewport height
+ * (excludes browser chrome, safe areas, keyboard, etc.).
+ */
+
+body {
+  min-height: calc(var(--vh, 1vh) * 100);
+}
+
+#app {
+  min-height: calc(var(--vh, 1vh) * 100);
+}
+
+.sidebar {
+  height: calc(
+    var(--vh, 1vh) * 100
+    - var(--header-h)
+    - var(--statusbar-h)
+    - var(--tabnav-h)
+  ) !important;
+}
+
+.dashboard-body {
+  height: calc(
+    var(--vh, 1vh) * 100
+    - var(--header-h)
+    - var(--statusbar-h)
+    - var(--tabnav-h)
+    - var(--bottomnav-h)
+  ) !important;
+  overflow-x: hidden;
+}
+
+/* ── 2. Safe-area inset application ─────────────────────── */
+
+/*
+ * Safe-area variables are written by orientation_manager.js.
+ * They protect content from notches and the iOS home indicator
+ * in both portrait and landscape orientations.
+ */
+
+.header {
+  padding-top:   var(--sai-top, 0px);
+  padding-left:  calc(16px + var(--sai-left,  0px));
+  padding-right: calc(16px + var(--sai-right, 0px));
+  height:        calc(var(--header-h) + var(--sai-top, 0px));
+}
+
+.bottom-tab-nav {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
+  height:         calc(var(--bottomnav-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Compensate body height for taller bottom-nav */
+.dashboard-body {
+  height: calc(
+    var(--vh, 1vh) * 100
+    - var(--header-h)
+    - var(--sai-top, 0px)
+    - var(--statusbar-h)
+    - var(--tabnav-h)
+    - var(--bottomnav-h)
+    - env(safe-area-inset-bottom, 0px)
+  ) !important;
+}
+
+/* ── 3. Smooth rotation transitions ─────────────────────── */
+
+/*
+ * The .rotating class is added by orientation_manager.js for
+ * ROTATION_TRANSITION_MS milliseconds during device rotation.
+ * We only transition layout properties, never opacity or
+ * visibility (avoids flashing during normal interactions).
+ */
+
+body.rotating .dashboard-body,
+body.rotating .sidebar,
+body.rotating .main-content,
+body.rotating .header,
+body.rotating .top-tab-nav,
+body.rotating .bottom-tab-nav {
+  transition:
+    height   0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    width    0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    padding  0.25s ease !important;
+}
+
+/* Prevent chart canvases from stretching during rotation */
+body.rotating canvas {
+  transition: none !important;
+}
+
+/* ── 4. Landscape compact layout ────────────────────────── */
+
+/*
+ * When the device is in landscape orientation the available
+ * vertical space is limited.  We compress the header, status
+ * bar, and tab nav to maximise content area.
+ *
+ * Breakpoint: landscape orientation AND narrow enough to be a
+ * phone (max-height: 500px prevents tablets from triggering).
+ */
+
+@media (orientation: landscape) and (max-height: 500px) {
+
+  :root {
+    --header-h:    36px;   /* Compact from 48px */
+    --statusbar-h: 0px;    /* Hide in landscape */
+    --tabnav-h:    36px;   /* Compact from 44px */
+    --bottomnav-h: 44px;   /* Compact from 56px */
+  }
+
+  /* Hide the status bar row entirely in landscape phone mode */
+  .status-bar { display: none !important; }
+
+  /* Tighten the header */
+  .header { padding: 0 12px; }
+  .brand-name { font-size: 12px !important; }
+  .brand-sub  { display: none; }
+
+  /* Tighten top-tab-nav */
+  .top-tab-nav { overflow-x: auto; }
+  .ttn-item    { padding: 0 10px; font-size: 9px; }
+
+  /* Bottom nav — tighter labels */
+  .btn-label   { display: none; }
+  .btn-icon    { font-size: 16px; }
+  .btn-item    { padding: 4px 2px 2px; }
+
+  /* Main content scrolls in landscape without overflowing */
+  .main-content {
+    overflow-y:    auto;
+    overflow-x:    hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Card grids go two-column in landscape */
+  .stats-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+  }
+
+  .quick-nav-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+  }
+
+  /* Modals: reduce max-height to fit landscape viewport */
+  .urm-modal,
+  .pwa-install-modal {
+    max-height: 88vh;
+    max-height: calc(var(--vh, 1vh) * 88);
+    overflow-y: auto;
+  }
+}
+
+/* ── 5. Landscape layout for tablets (≥ 768px wide) ────── */
+
+@media (orientation: landscape) and (min-width: 768px) {
+
+  /* Sidebar visible in landscape tablet */
+  @media (max-width: 900px) {
+    .sidebar { display: flex !important; width: 200px; }
+    .main-content { flex: 1; min-width: 0; }
+  }
+}
+
+/* ── 6. Portrait layout cleanup ─────────────────────────── */
+
+body.is-portrait .sidebar {
+  /* No side-padding from landscape */
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* ── 7. Overflow hardening ───────────────────────────────── */
+
+/*
+ * Prevent any descendant from causing a horizontal scrollbar
+ * after rotation — a common source of "broken layout" on iOS.
+ */
+
+#app,
+.dashboard-body,
+.main-content,
+.tab-pane {
+  max-width:   100vw;
+  overflow-x:  hidden;
+}
+
+/*
+ * Tables and pre-formatted blocks inside tab panes should
+ * scroll rather than push the viewport.
+ */
+.tab-pane table,
+.tab-pane pre {
+  max-width:    100%;
+  overflow-x:   auto;
+  display:      block;
+  white-space:  pre;
+}
+
+/* Chart container: never exceed its parent width */
+.chart-wrap,
+[id$="-chart"],
+canvas {
+  max-width: 100% !important;
+}
+
+/* ── 8. Keyboard-visible layout ──────────────────────────── */
+
+/*
+ * When the soft keyboard is open the browser shrinks the
+ * viewport (and --vh).  We hide the bottom-nav to reclaim
+ * vertical space and prevent the keyboard from covering inputs.
+ *
+ * The .keyboard-open class is added by a future extension point
+ * — the orientation_manager already sets _isKeyboardOpen but
+ * does not add a class by default (reserved for future use).
+ */
+
+body.keyboard-open .bottom-tab-nav {
+  transform:   translateY(100%);
+  transition:  transform 0.22s ease;
+  pointer-events: none;
+}
+
+body:not(.keyboard-open) .bottom-tab-nav {
+  transform:   translateY(0);
+  transition:  transform 0.22s ease;
+}
+
+/* Inputs remain above the keyboard in fixed layouts */
+input:focus,
+textarea:focus,
+select:focus {
+  position: relative;
+  z-index:  1;
+  scroll-margin-bottom: 80px;
+}
+
+/* ── 9. PWA standalone safe-area header padding ─────────── */
+
+@media (display-mode: standalone),
+       (display-mode: fullscreen) {
+
+  .header {
+    padding-top: calc(var(--sai-top, 0px) + 0px);
+    height:      calc(var(--header-h) + var(--sai-top, 0px));
+  }
+
+  /* iOS notch landscape — push content away from cut-out */
+  body.is-landscape .header {
+    padding-left:  calc(var(--sai-left,  0px) + 16px);
+    padding-right: calc(var(--sai-right, 0px) + 16px);
+  }
+
+  body.is-landscape .main-content {
+    padding-left:  var(--sai-left,  0px);
+    padding-right: var(--sai-right, 0px);
+  }
+}
+/* ── END ORIENTATION STYLES ─────────────────────────────── */
