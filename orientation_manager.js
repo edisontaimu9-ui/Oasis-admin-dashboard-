@@ -79,6 +79,13 @@
       this._bindEvents();
       this._tryPWAOrientationLock();
 
+      /* Restore user's landscape preference if they enabled it before */
+      try {
+        if (localStorage.getItem('oasis_landscape') === '1') {
+          this.enableLandscape();
+        }
+      } catch(e) {}
+
       console.log('[OasisOrientation] Initialised —', _lastOrientation);
     },
 
@@ -157,19 +164,23 @@
 
     _tryPWAOrientationLock: function () {
       /*
-       * FIXED: 'natural' is not reliably supported on Android Chrome
-       * and was silently failing, leaving orientation fully unlocked.
+       * The Web Platform has NO API to read the device's auto-rotate
+       * system setting. The probe approach (lock landscape, see if it
+       * resolves) does NOT work — screen.orientation.lock() resolves
+       * based on API permission, not on whether the OS actually allows
+       * rotation. It resolves even when auto-rotate is OFF, so the
+       * probe always triggers unlock(), which undoes everything.
        *
-       * Two-phase approach:
-       *   Phase 1 — lock('portrait'): stops unwanted landscape in PWA
-       *             mode when auto-rotate is OFF.
-       *   Phase 2 — probe lock('landscape-primary'): Chrome Android
-       *             only allows this when auto-rotate is ON.
-       *             Success → call unlock() so the OS governs normally.
-       *             Failure → keep portrait lock (auto-rotate is OFF).
-       *
-       * Browser tabs always reject lock() (needs standalone context),
-       * so both phases fail quietly — correct behaviour.
+       * Correct strategy:
+       *   • Manifest  orientation:'portrait'  is the declaration of
+       *     intent. Android respects this at install time.
+       *   • JS lock('portrait') reinforces it at runtime for cases
+       *     where the manifest cache is stale.
+       *   • We never call unlock() programmatically. If the user
+       *     wants landscape they use the Settings toggle (which calls
+       *     OasisOrientation.enableLandscape()).
+       *   • In a browser tab lock() rejects (needs standalone) —
+       *     the catch swallows it silently, correct behaviour.
        */
       if (!window.screen || !screen.orientation || !screen.orientation.lock) return;
 
@@ -181,19 +192,34 @@
 
       if (!isStandalone) return;
 
-      /* Phase 1: lock portrait */
       screen.orientation.lock('portrait').then(function () {
-        /* Phase 2: probe auto-rotate */
-        return screen.orientation.lock('landscape-primary');
-      }).then(function () {
-        /* Landscape lock succeeded = auto-rotate is ON — let OS control */
-        screen.orientation.unlock();
-        console.log('[OasisOrientation] Auto-rotate ON — orientation unlocked');
+        console.log('[OasisOrientation] Portrait lock active (PWA standalone)');
       }).catch(function (err) {
-        /* Phase 1 failed (browser tab) OR Phase 2 failed (auto-rotate OFF) */
-        /* Portrait lock from Phase 1 remains active if Phase 1 succeeded */
-        console.log('[OasisOrientation] Portrait lock active:', err && err.message);
+        /* Browser tab or unsupported — silent, nothing to do */
+        console.log('[OasisOrientation] Lock skipped:', err && err.message);
       });
+    },
+
+    /**
+     * Call this from a Settings toggle to permit landscape rotation.
+     * Calls unlock() so the OS auto-rotate setting governs normally.
+     * Persist the user's choice in localStorage so it survives reload.
+     */
+    enableLandscape: function () {
+      if (window.screen && screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
+      try { localStorage.setItem('oasis_landscape', '1'); } catch(e) {}
+      console.log('[OasisOrientation] Landscape enabled by user');
+    },
+
+    /** Re-apply portrait lock (call from Settings toggle off) */
+    disableLandscape: function () {
+      if (window.screen && screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('portrait').catch(function(){});
+      }
+      try { localStorage.removeItem('oasis_landscape'); } catch(e) {}
+      console.log('[OasisOrientation] Landscape disabled — portrait lock restored');
     },
 
     /** Force a full recalculation (charts + tab re-render) */
