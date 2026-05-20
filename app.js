@@ -920,13 +920,13 @@ function _renderFeedback() {
   _set('home-feedback-count', allFeedback.length);
 
   // Emoji counts
-  const counts = { '👍':0, '❤️':0, '😐':0, '🐛':0, '💡':0 };
+  const counts = { '👍':0, '❤️':0, '😐':0, '🐛':0, '💡':0, '⚕️':0, '💬':0 };
   allFeedback.forEach(f => { if (counts[f.emoji] !== undefined) counts[f.emoji]++; });
   _set('fb-emoji-thumbsup', counts['👍']);
   _set('fb-emoji-heart',    counts['❤️']);
   _set('fb-emoji-neutral',  counts['😐']);
-  _set('fb-emoji-bug',      counts['🐛']);
-  _set('fb-emoji-idea',     counts['💡']);
+  _set('fb-emoji-bug',      counts['🐛'] + counts['⚕️']); // Bug Report + Clinical Error
+  _set('fb-emoji-idea',     counts['💡'] + counts['💬']); // Feature Request + General
 
   if (!allFeedback.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div>No feedback yet</div>';
@@ -936,6 +936,8 @@ function _renderFeedback() {
     const senderName = f.userName || f.userId || f.sessionId || '—';
     const senderRole = f.userRole ? `<span class="badge badge-dim" style="font-size:8px;padding:1px 6px">${_esc(f.userRole)}</span>` : '';
     const senderUid  = f.userId   ? `<span class="fb-meta-item" title="User ID">🪪 ${_esc(f.userId.slice(0,16))}</span>` : '';
+    const typeLabel  = f.feedbackType ? `<span class="badge badge-dim" style="font-size:8px;padding:1px 6px;margin-left:2px">${_esc(f.feedbackType)}</span>` : '';
+    const subjectLine = f.subject ? `<div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:3px;opacity:.85">${_esc(f.subject)}</div>` : '';
     // Device: only show icon when it's not unknown
     const devLabel = _deviceLabel(f.deviceInfo);
     const devDisplay = devLabel !== 'Unknown'
@@ -946,8 +948,9 @@ function _renderFeedback() {
       <div class="fb-body">
         <div class="fb-sender" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
           <span style="font-size:12px;font-weight:700;color:var(--text)">${_esc(senderName)}</span>
-          ${senderRole}
+          ${senderRole}${typeLabel}
         </div>
+        ${subjectLine}
         <div class="fb-msg">${_esc(f.message || '(no message)')}</div>
         <div class="fb-meta">
           ${senderUid}
