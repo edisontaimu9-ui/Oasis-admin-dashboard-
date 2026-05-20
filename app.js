@@ -1831,7 +1831,7 @@ function _injectManifest() {
     display: 'standalone',
     background_color: '#020510',
     theme_color: '#1de9d4',
-    orientation: 'any',
+    orientation: 'portrait',  // JS probe in orientation_manager unlocks if auto-rotate is ON
     lang: 'en',
     categories: ['medical', 'health', 'productivity'],
     icons: [...iconsAny, ...iconsMaskable],

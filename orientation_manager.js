@@ -157,14 +157,19 @@
 
     _tryPWAOrientationLock: function () {
       /*
-       * In PWA standalone / fullscreen mode we attempt to lock to
-       * 'natural' — which on phones means portrait.  This is a
-       * no-op if the device has auto-rotate OFF (OS already locks
-       * it) and silently fails in regular browser tabs (where the
-       * API throws).
+       * FIXED: 'natural' is not reliably supported on Android Chrome
+       * and was silently failing, leaving orientation fully unlocked.
        *
-       * We intentionally use 'natural' (not 'portrait-primary') so
-       * tablets that naturally hold landscape are not broken.
+       * Two-phase approach:
+       *   Phase 1 — lock('portrait'): stops unwanted landscape in PWA
+       *             mode when auto-rotate is OFF.
+       *   Phase 2 — probe lock('landscape-primary'): Chrome Android
+       *             only allows this when auto-rotate is ON.
+       *             Success → call unlock() so the OS governs normally.
+       *             Failure → keep portrait lock (auto-rotate is OFF).
+       *
+       * Browser tabs always reject lock() (needs standalone context),
+       * so both phases fail quietly — correct behaviour.
        */
       if (!window.screen || !screen.orientation || !screen.orientation.lock) return;
 
@@ -174,12 +179,21 @@
         window.navigator.standalone === true
       );
 
-      if (isStandalone) {
-        screen.orientation.lock('natural').catch(function () {
-          /* Expected in browsers that don't allow orientation lock
-             outside fullscreen element — silently ignore */
-        });
-      }
+      if (!isStandalone) return;
+
+      /* Phase 1: lock portrait */
+      screen.orientation.lock('portrait').then(function () {
+        /* Phase 2: probe auto-rotate */
+        return screen.orientation.lock('landscape-primary');
+      }).then(function () {
+        /* Landscape lock succeeded = auto-rotate is ON — let OS control */
+        screen.orientation.unlock();
+        console.log('[OasisOrientation] Auto-rotate ON — orientation unlocked');
+      }).catch(function (err) {
+        /* Phase 1 failed (browser tab) OR Phase 2 failed (auto-rotate OFF) */
+        /* Portrait lock from Phase 1 remains active if Phase 1 succeeded */
+        console.log('[OasisOrientation] Portrait lock active:', err && err.message);
+      });
     },
 
     /** Force a full recalculation (charts + tab re-render) */
