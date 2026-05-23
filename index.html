@@ -17,8 +17,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Barlow:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Nunito:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- Firebase SDK (compat — same version as Oasis main app) -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
@@ -164,6 +166,11 @@
       <div class="nav-item"        id="nav-users"     onclick="switchTab('users')">     <span class="nav-icon">👥</span><span class="nav-label">Users</span>      <span class="nav-badge" id="nb-users">—</span></div>
       <div class="nav-item"        id="nav-errors"    onclick="switchTab('errors')">    <span class="nav-icon">🔴</span><span class="nav-label">Error Log</span>  <span class="nav-badge" id="nb-errors">—</span></div>
       <div class="nav-item"        id="nav-offline"   onclick="switchTab('offline')">   <span class="nav-icon">📶</span><span class="nav-label">Offline</span></div>
+      <div class="nav-sep"></div>
+      <div class="nav-group-label">Content</div>
+      <div class="nav-item"        id="nav-library"   onclick="switchTab('library')">   <span class="nav-icon">📚</span><span class="nav-label">Library</span>    <span class="nav-badge" id="nb-library">—</span></div>
+      <div class="nav-sep"></div>
+      <div class="nav-group-label">Config</div>
       <div class="nav-item"        id="nav-settings"  onclick="switchTab('settings')">  <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
       <div class="nav-item"        id="nav-developer" onclick="switchTab('developer')"> <span class="nav-icon">👤</span><span class="nav-label">Developer</span></div>
       <div class="sidebar-footer">
@@ -699,6 +706,220 @@
 
       </div><!-- /developer -->
 
+      <!-- ══════ LIBRARY MODERATION ══════ -->
+      <div class="tab-pane" id="tab-library">
+        <div class="content-header">
+          <div class="page-title">Library <span>Resource Moderation · Categories · Tags</span></div>
+        </div>
+
+        <!-- KPI Row -->
+        <div class="kpi-grid" style="margin-bottom:20px">
+          <div class="kpi-card c-amber"  data-icon="⏳"><div class="kpi-label">Pending</div>  <div class="kpi-val" id="lib-kpi-pending">—</div><div class="kpi-sub">Awaiting review</div></div>
+          <div class="kpi-card c-green"  data-icon="✅"><div class="kpi-label">Approved</div> <div class="kpi-val" id="lib-kpi-approved">—</div><div class="kpi-sub">Live in app</div></div>
+          <div class="kpi-card c-red"    data-icon="❌"><div class="kpi-label">Rejected</div> <div class="kpi-val" id="lib-kpi-rejected">—</div><div class="kpi-sub">Not published</div></div>
+          <div class="kpi-card c-teal"   data-icon="📚"><div class="kpi-label">Total</div>    <div class="kpi-val" id="lib-kpi-total">—</div><div class="kpi-sub">All submissions</div></div>
+        </div>
+
+        <!-- Sub-nav -->
+        <div class="la-subnav">
+          <button class="la-sntab active" data-panel="resources"  onclick="LibAdmin.switchPanel('resources')">📄 Resources</button>
+          <button class="la-sntab"        data-panel="categories" onclick="LibAdmin.switchPanel('categories')">🗂 Categories</button>
+          <button class="la-sntab"        data-panel="tags"       onclick="LibAdmin.switchPanel('tags')">🏷 Tags</button>
+        </div>
+
+        <!-- ── PANEL: Resources ────────────────────────────── -->
+        <div class="la-panel active" id="la-panel-resources">
+
+          <!-- Toolbar -->
+          <div class="la-toolbar">
+            <div class="chip-group" id="la-status-filter">
+              <div class="chip active" data-val="all"      onclick="LibAdmin.setStatusFilter(this,'all')">All</div>
+              <div class="chip"        data-val="pending"  onclick="LibAdmin.setStatusFilter(this,'pending')">⏳ Pending</div>
+              <div class="chip"        data-val="approved" onclick="LibAdmin.setStatusFilter(this,'approved')">✅ Approved</div>
+              <div class="chip"        data-val="rejected" onclick="LibAdmin.setStatusFilter(this,'rejected')">❌ Rejected</div>
+            </div>
+            <select class="la-select" id="la-cat-filter" onchange="LibAdmin.setCatFilter(this.value)">
+              <option value="">All Categories</option>
+            </select>
+            <input class="la-search" id="la-search" type="text" placeholder="Search title, uploader…" oninput="LibAdmin.onSearch(this.value)">
+            <span class="la-count-label" id="la-count">—</span>
+          </div>
+
+          <!-- Table -->
+          <div class="urm-table-wrap">
+            <table class="urm-table la-table">
+              <thead>
+                <tr>
+                  <th>Title / Tags</th>
+                  <th>Category</th>
+                  <th>Type</th>
+                  <th>Uploader</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="la-resources-tbody"></tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div class="la-pagination">
+            <button class="la-pg-btn" id="la-pg-prev" onclick="LibAdmin.prevPage()">← Prev</button>
+            <span class="la-pg-info" id="la-pg-info">Page 1 / 1</span>
+            <button class="la-pg-btn" id="la-pg-next" onclick="LibAdmin.nextPage()">Next →</button>
+          </div>
+        </div>
+
+        <!-- ── PANEL: Categories ───────────────────────────── -->
+        <div class="la-panel" id="la-panel-categories">
+          <div class="stg-card" style="margin-bottom:18px">
+            <div class="stg-card-hdr">➕ Add Category</div>
+            <div style="padding:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+              <div style="flex:1;min-width:160px">
+                <label class="dev-label" style="margin-bottom:6px;display:block">Display Name</label>
+                <input class="la-search" id="la-cat-name" type="text" placeholder="e.g. Clinical Guidelines" style="width:100%">
+              </div>
+              <div style="flex:1;min-width:140px">
+                <label class="dev-label" style="margin-bottom:6px;display:block">ID <small style="color:var(--text-dim)">(auto-slug)</small></label>
+                <input class="la-search" id="la-cat-id" type="text" placeholder="e.g. clinical_guidelines" style="width:100%">
+              </div>
+              <button class="la-modal-btn la-btn-approve" style="height:38px;padding:0 20px" onclick="LibAdmin.addCategory()">➕ Add</button>
+            </div>
+          </div>
+          <div class="urm-table-wrap">
+            <table class="urm-table la-table">
+              <thead><tr><th>Name</th><th>ID</th><th>Resources</th><th>Actions</th></tr></thead>
+              <tbody id="la-cat-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── PANEL: Tags ─────────────────────────────────── -->
+        <div class="la-panel" id="la-panel-tags">
+          <div class="stg-card" style="margin-bottom:18px">
+            <div class="stg-card-hdr">➕ Add Tag</div>
+            <div style="padding:16px;display:flex;gap:10px;align-items:flex-end">
+              <input class="la-search" id="la-tag-name" type="text" placeholder="e.g. enteral-nutrition" style="flex:1">
+              <button class="la-modal-btn la-btn-approve" style="height:38px;padding:0 20px" onclick="LibAdmin.addTag()">➕ Add</button>
+            </div>
+          </div>
+          <div class="urm-table-wrap">
+            <table class="urm-table la-table">
+              <thead><tr><th>Tag</th><th>Usage</th><th>Actions</th></tr></thead>
+              <tbody id="la-tags-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /library -->
+
+      <!-- ══ MODAL: Review (Approve / Reject) ══ -->
+      <div class="la-overlay" id="la-review-overlay" style="display:none" onclick="if(event.target===this)LibAdmin.closeReviewModal()">
+        <div class="la-modal">
+          <div class="la-modal-hdr">
+            <span id="la-review-title">Review Resource</span>
+            <button class="urm-modal-close" onclick="LibAdmin.closeReviewModal()">✕</button>
+          </div>
+          <div class="la-modal-body">
+            <div class="la-modal-res-name" id="la-review-res-title"></div>
+            <label class="dev-label" style="margin:14px 0 6px;display:block">Moderation Note</label>
+            <textarea class="dev-input dev-textarea" id="la-review-note" rows="4" placeholder="Optional note…"></textarea>
+          </div>
+          <div class="la-modal-footer">
+            <button class="la-modal-btn la-modal-cancel" onclick="LibAdmin.closeReviewModal()">Cancel</button>
+            <button class="la-modal-btn la-btn-approve" id="la-review-confirm-btn" onclick="LibAdmin.confirmReview()">Confirm</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ MODAL: Edit Resource ══ -->
+      <div class="la-overlay" id="la-edit-overlay" style="display:none" onclick="if(event.target===this)LibAdmin.closeEditModal()">
+        <div class="la-modal la-modal-wide">
+          <div class="la-modal-hdr">
+            <span>✎ Edit Resource</span>
+            <button class="urm-modal-close" onclick="LibAdmin.closeEditModal()">✕</button>
+          </div>
+          <div class="la-modal-body">
+            <div class="dev-field">
+              <label class="dev-label">Title</label>
+              <input class="dev-input" id="la-edit-title" type="text" maxlength="200">
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Description</label>
+              <textarea class="dev-input dev-textarea" id="la-edit-desc" rows="3" maxlength="800"></textarea>
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Source / Author</label>
+              <input class="dev-input" id="la-edit-source" type="text" maxlength="200">
+            </div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <div class="dev-field" style="flex:1;min-width:160px">
+                <label class="dev-label">Category</label>
+                <select class="dev-input" id="la-edit-category"></select>
+              </div>
+              <div class="dev-field" style="flex:1;min-width:120px">
+                <label class="dev-label">Status</label>
+                <select class="dev-input" id="la-edit-status">
+                  <option value="pending">⏳ Pending</option>
+                  <option value="approved">✅ Approved</option>
+                  <option value="rejected">❌ Rejected</option>
+                </select>
+              </div>
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Tags <small style="color:var(--text-dim)">(comma-separated)</small></label>
+              <input class="dev-input" id="la-edit-tags" type="text" placeholder="e.g. enteral, paediatric, ESPGHAN">
+            </div>
+          </div>
+          <div class="la-modal-footer">
+            <button class="la-modal-btn la-modal-cancel" onclick="LibAdmin.closeEditModal()">Cancel</button>
+            <button class="la-modal-btn la-btn-approve" id="la-edit-save-btn" onclick="LibAdmin.saveResourceEdit()">💾 Save Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ MODAL: Edit Category ══ -->
+      <div class="la-overlay" id="la-cat-modal-overlay" style="display:none" onclick="if(event.target===this)LibAdmin.closeEditCat()">
+        <div class="la-modal">
+          <div class="la-modal-hdr">
+            <span>✎ Edit Category</span>
+            <button class="urm-modal-close" onclick="LibAdmin.closeEditCat()">✕</button>
+          </div>
+          <div class="la-modal-body">
+            <div class="la-modal-res-name" id="la-edit-cat-id-display" style="color:var(--text-dim);font-size:12px;margin-bottom:14px"></div>
+            <div class="dev-field">
+              <label class="dev-label">Display Name</label>
+              <input class="dev-input" id="la-edit-cat-name" type="text">
+            </div>
+          </div>
+          <div class="la-modal-footer">
+            <button class="la-modal-btn la-modal-cancel" onclick="LibAdmin.closeEditCat()">Cancel</button>
+            <button class="la-modal-btn la-btn-approve" id="la-cat-save-btn" onclick="LibAdmin.saveEditCat()">💾 Save</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ MODAL: Edit Tag ══ -->
+      <div class="la-overlay" id="la-tag-modal-overlay" style="display:none" onclick="if(event.target===this)LibAdmin.closeEditTag()">
+        <div class="la-modal">
+          <div class="la-modal-hdr">
+            <span>✎ Edit Tag</span>
+            <button class="urm-modal-close" onclick="LibAdmin.closeEditTag()">✕</button>
+          </div>
+          <div class="la-modal-body">
+            <div class="dev-field">
+              <label class="dev-label">Tag Name</label>
+              <input class="dev-input" id="la-edit-tag-name" type="text">
+            </div>
+          </div>
+          <div class="la-modal-footer">
+            <button class="la-modal-btn la-modal-cancel" onclick="LibAdmin.closeEditTag()">Cancel</button>
+            <button class="la-modal-btn la-btn-approve" id="la-tag-save-btn" onclick="LibAdmin.saveEditTag()">💾 Save</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ══════ OFFLINE USAGE ══════ -->
       <div class="tab-pane" id="tab-offline">
         <div class="content-header"><div class="page-title">Offline Usage <span>Connectivity tracker</span></div></div>
@@ -752,6 +973,7 @@
      SCRIPTS
 ═══════════════════════════════════════════════════════════ -->
 <script src="app.js"></script>
+<script src="library_admin.js"></script>
 
 <!-- ════════════════ DEVELOPER PHOTO CROP MODAL ════════════════ -->
 <div id="dev-crop-overlay" class="dev-crop-overlay" style="display:none">

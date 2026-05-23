@@ -1160,7 +1160,7 @@ function switchTab(tab) {
   if (Array.isArray(btnTarget)) btnTarget.forEach(id => document.getElementById(id)?.classList.add('active'));
   else if (btnTarget) document.getElementById(btnTarget)?.classList.add('active');
 
-  const labels = { home:'Home', overview:'Overview', analytics:'Analytics', online:'Online', sessions:'Sessions', feedback:'Feedback', settings:'Settings', users:'Users', errors:'Error Log', offline:'Offline Usage', developer:'Developer Profile' };
+  const labels = { home:'Home', overview:'Overview', analytics:'Analytics', online:'Online', sessions:'Sessions', feedback:'Feedback', settings:'Settings', users:'Users', errors:'Error Log', offline:'Offline Usage', developer:'Developer Profile', library:'Library' };
   document.getElementById('content-title').textContent = labels[tab] || tab;
 
   // Re-render charts when switching to chart tabs (canvas size may change)
@@ -1172,6 +1172,7 @@ function switchTab(tab) {
   if (tab === 'errors')    { setTimeout(renderErrorLog, 50); }
   if (tab === 'offline')   { setTimeout(renderOfflineTab, 50); }
   if (tab === 'developer') { setTimeout(devLoadProfile, 50); }
+  if (tab === 'library')   { setTimeout(() => { if (window.LibAdmin) LibAdmin.init(); }, 50); }
 }
 
 /* ═══════════════════════════════════════════════════════════
