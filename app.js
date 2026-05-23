@@ -1142,9 +1142,10 @@ function switchTab(tab) {
 
   // ── Top tab nav (Home + Settings) ─────────────────────────────
   const ttnMap = {
-    home: 'ttn-home',
-    settings: 'ttn-settings',
+    home:      'ttn-home',
+    settings:  'ttn-settings',
     developer: 'ttn-developer',
+    library:   'ttn-library',
   };
   const ttnTarget = ttnMap[tab];
   if (ttnTarget) document.getElementById(ttnTarget)?.classList.add('active');
@@ -1163,7 +1164,6 @@ function switchTab(tab) {
   const labels = { home:'Home', overview:'Overview', analytics:'Analytics', online:'Online', sessions:'Sessions', feedback:'Feedback', settings:'Settings', users:'Users', errors:'Error Log', offline:'Offline Usage', developer:'Developer Profile', library:'Library' };
   document.getElementById('content-title').textContent = labels[tab] || tab;
 
-  // Re-render charts when switching to chart tabs (canvas size may change)
   if (tab === 'overview')  { setTimeout(_renderOverviewCharts, 50); }
   if (tab === 'analytics') { setTimeout(_renderAnalyticsCharts, 50); setTimeout(_renderLiveUsersTable, 50); }
   if (tab === 'online')    { setTimeout(_renderOnlineTab, 50); }
