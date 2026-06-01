@@ -20,7 +20,7 @@ Oasis Admin Dashboard is a web-based administrative interface designed to:
 
 **Platform**: Clinical Nutrition Decision Support  
 **Version**: 1.0.0 (April 2026)  
-**Author**: [Edison Taimu](https://github.com/edisontaimu9-ui) · KUHeS (Kilimanjaro University of Health & Allied Sciences)
+**Author**: [Edison Taimu](https://github.com/edisontaimu9-ui) · KUHeS (Kamuzu University of Health sciences)
 
 ---
 
