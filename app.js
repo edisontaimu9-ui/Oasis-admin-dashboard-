@@ -267,6 +267,121 @@ async function doForgotPassword() {
   }
 }
 
+/** Show / hide register screen */
+function showRegisterPanel() {
+  const el = document.getElementById('register-screen');
+  if (el) { el.style.display = 'flex'; }
+}
+function hideRegisterPanel() {
+  const el = document.getElementById('register-screen');
+  if (el) { el.style.display = 'none'; }
+  // Clear fields & errors
+  ['reg-name','reg-email','reg-pass','reg-confirm'].forEach(id => {
+    const f = document.getElementById(id); if (f) f.value = '';
+  });
+  const fill = document.getElementById('reg-pwd-fill');
+  const hint = document.getElementById('reg-pwd-hint');
+  if (fill) fill.style.width = '0';
+  if (hint) { hint.textContent = 'Choose a strong password'; hint.style.color = ''; }
+  const err = document.getElementById('register-err');
+  if (err) { err.textContent = ''; err.style.color = ''; }
+}
+
+/** Password strength for register panel */
+function evalRegPwdStrength(val) {
+  const fill = document.getElementById('reg-pwd-fill');
+  const hint = document.getElementById('reg-pwd-hint');
+  if (!fill || !hint) return;
+  if (!val) { fill.style.width = '0'; hint.textContent = 'Choose a strong password'; hint.style.color = ''; return; }
+  let score = 0;
+  if (val.length >= 8)            score++;
+  if (val.length >= 12)           score++;
+  if (/[A-Z]/.test(val))          score++;
+  if (/[0-9]/.test(val))          score++;
+  if (/[^A-Za-z0-9]/.test(val))   score++;
+  const levels = [
+    { w:'20%', bg:'#fb7185', txt:'Weak' },
+    { w:'40%', bg:'#fb7185', txt:'Weak' },
+    { w:'60%', bg:'#f0b429', txt:'Fair' },
+    { w:'80%', bg:'#60a5fa', txt:'Good' },
+    { w:'100%',bg:'#34d399', txt:'Strong' },
+  ];
+  const lv = levels[Math.min(score, 5) - 1] || levels[0];
+  fill.style.width = lv.w; fill.style.background = lv.bg;
+  hint.textContent = lv.txt; hint.style.color = lv.bg;
+}
+
+/** Register a new admin account (pending approval) */
+let _isRegistering = false;
+async function doRegister() {
+  const name    = (document.getElementById('reg-name')?.value    || '').trim();
+  const email   = (document.getElementById('reg-email')?.value   || '').trim();
+  const pass    = document.getElementById('reg-pass')?.value     || '';
+  const confirm = document.getElementById('reg-confirm')?.value  || '';
+  const errEl   = document.getElementById('register-err');
+  const btn     = document.getElementById('register-btn');
+
+  errEl.style.color = 'var(--red)';
+  errEl.textContent = '';
+
+  if (!name || !email || !pass || !confirm) { errEl.textContent = '⚠ All fields are required.'; return; }
+  if (pass.length < 8)                      { errEl.textContent = '⚠ Password must be at least 8 characters.'; return; }
+  if (pass !== confirm)                     { errEl.textContent = '✗ Passwords do not match.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Creating Account…';
+  _isRegistering = true;
+
+  try {
+    const cred = await _auth.createUserWithEmailAndPassword(email, pass);
+    const user = cred.user;
+
+    await user.updateProfile({ displayName: name });
+
+    const fs = firebase.firestore();
+    await fs.collection('adminRoles').doc(user.uid).set({
+      uid:         user.uid,
+      email:       user.email,
+      displayName: name,
+      role:        'admin',
+      status:      'pending_approval',
+      createdAt:   firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    await fs.collection('adminRegistrations').doc(user.uid).set({
+      uid:         user.uid,
+      email:       user.email,
+      displayName: name,
+      requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      status:      'pending',
+    });
+
+    await _auth.signOut();
+    _isRegistering = false;
+
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = '✓ Registration submitted! An existing admin will review and approve your access.';
+
+    ['reg-name','reg-email','reg-pass','reg-confirm'].forEach(id => {
+      const f = document.getElementById(id); if (f) f.value = '';
+    });
+    const fill = document.getElementById('reg-pwd-fill');
+    if (fill) fill.style.width = '0';
+
+    setTimeout(() => hideRegisterPanel(), 4000);
+
+  } catch (err) {
+    _isRegistering = false;
+    const map = {
+      'auth/email-already-in-use':   '✗ An account with this email already exists.',
+      'auth/invalid-email':          '✗ Invalid email address.',
+      'auth/weak-password':          '⚠ Password is too weak (min 6 chars).',
+      'auth/network-request-failed': '⚠ Network error. Check your connection.',
+    };
+    errEl.textContent = map[err.code] || `✗ Error: ${err.message}`;
+  } finally {
+    btn.disabled = false; btn.textContent = 'REQUEST ACCESS →';
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════
    FIRESTORE DATA INIT — real-time listeners on all collections
    Falls back to demo seed data if Firestore is unavailable
@@ -2300,6 +2415,7 @@ window.addEventListener('click', (e) => {
   // ── Firebase Auth state is the single source of truth for routing ──
   _auth.onAuthStateChanged(async (user) => {
     if (user) {
+      if (_isRegistering) return; // suppress during registration flow
       // Authenticated — wire up Firestore and show the app
       if (!db) initFirestoreListeners();
       await _ensureAdminRole(user);
