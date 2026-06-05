@@ -32,23 +32,57 @@ body { font-family: var(--sans); background: var(--bg); color: var(--text); min-
 ::-webkit-scrollbar-thumb { background: #1e3050; border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--teal); }
 
-/* ── LOGIN SCREEN ── */
-#login-screen {
-  position: fixed; inset: 0; z-index: 9999;
+/* ── LOGIN / REGISTER SCREENS ── */
+#login-screen,
+#register-screen {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  width: 100%;
+  /* Belt-and-suspenders height: fixed + inset covers most cases;
+     the calc(var(--vh)*100) catches Android Chrome address-bar quirks */
+  height: 100vh;
+  height: calc(var(--vh, 1vh) * 100);
+  z-index: 9999;
   background: var(--bg);
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  /* allow scroll on very short viewports (e.g. register form) */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
-#login-screen::before {
-  content: ''; position: absolute; inset: 0;
+#register-screen { z-index: 10000; }
+
+#login-screen::before,
+#register-screen::before {
+  content: '';
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
   background:
-    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(29,233,212,0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(29,233,212,0.05) 0%, transparent 70%),
     radial-gradient(ellipse 50% 60% at 80% 80%, rgba(240,180,41,0.04) 0%, transparent 70%);
 }
 .login-box {
-  position: relative; width: 360px;
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  /* On very small phones give some breathing room from edges */
+  min-width: 0;
   background: var(--surface); border: 1px solid var(--border2);
-  border-radius: 16px; padding: 36px 32px;
-  box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+  border-radius: 16px;
+  padding: 32px 28px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+  /* Centres itself inside the flex column when content is shorter than viewport */
+  margin: auto;
+  flex-shrink: 0;
+}
+@media (max-width: 440px) {
+  .login-box { padding: 28px 20px; border-radius: 14px; }
+}
+@media (max-width: 340px) {
+  .login-box { padding: 22px 16px; }
 }
 .login-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
 .login-logo-ring {
@@ -592,7 +626,7 @@ body::before {
   opacity: 1;
   transition: opacity .4s;
 }
-#app, #login-screen, #toast { position: relative; z-index: 1; }
+#app, #toast { position: relative; z-index: 1; }
 
 /* Settings section header */
 .stg-section-hdr {
