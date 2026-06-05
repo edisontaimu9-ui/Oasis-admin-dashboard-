@@ -50,10 +50,13 @@ let rtdb = null;
 let _rtdbPresence = {};
 
 /* ═══════════════════════════════════════════════════════════
-   ADMIN CREDENTIALS
-   Change ADMIN_PASS before deployment.
+   FIREBASE INIT — initialised once at page load.
+   Auth state drives all routing (no hard-coded credentials).
 ═══════════════════════════════════════════════════════════ */
-let ADMIN_PASS = sessionStorage.getItem('nt_admin_pass_override') || "NutriAdmin2025!";
+if (!firebase.apps.length) {
+  firebase.initializeApp(FIREBASE_CONFIG);
+}
+const _auth = firebase.auth();
 
 /* ── PASSWORD STRENGTH EVALUATOR ── */
 function evalPwdStrength(val) {
@@ -78,28 +81,46 @@ function evalPwdStrength(val) {
   hint.textContent = lv.txt; hint.style.color = lv.bg;
 }
 
-/* ── CHANGE ADMIN PASSWORD ── */
-function changeAdminPassword() {
-  const cur     = document.getElementById('pwd-current').value;
+/* ── CHANGE ADMIN PASSWORD (Firebase) ── */
+async function changeAdminPassword() {
+  const cur     = document.getElementById('pwd-current').value.trim();
   const newPwd  = document.getElementById('pwd-new').value;
   const confirm = document.getElementById('pwd-confirm').value;
   const msg     = document.getElementById('pwd-msg');
   msg.style.color = 'var(--red)';
+
   if (!cur || !newPwd || !confirm) { msg.textContent = '⚠ All fields are required.'; return; }
-  if (cur !== ADMIN_PASS)          { msg.textContent = '✗ Current password is incorrect.'; return; }
   if (newPwd.length < 8)           { msg.textContent = '⚠ Minimum 8 characters required.'; return; }
   if (newPwd !== confirm)          { msg.textContent = '✗ New passwords do not match.'; return; }
-  if (newPwd === ADMIN_PASS)       { msg.textContent = '⚠ New password must differ from current.'; return; }
-  ADMIN_PASS = newPwd;
-  sessionStorage.setItem('nt_admin_pass_override', newPwd);
-  ['pwd-current','pwd-new','pwd-confirm'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('pwd-strength-fill').style.width = '0';
-  document.getElementById('pwd-strength-hint').textContent = 'Enter a new password';
-  document.getElementById('pwd-strength-hint').style.color = '';
-  msg.style.color = 'var(--green)';
-  msg.textContent = '✓ Password updated successfully.';
-  showToast('Admin password updated', 'success');
-  setTimeout(() => { msg.textContent = ''; }, 4000);
+  if (cur === newPwd)              { msg.textContent = '⚠ New password must differ from current.'; return; }
+
+  const user = _auth.currentUser;
+  if (!user) { msg.textContent = '✗ Not authenticated. Please log in again.'; return; }
+
+  try {
+    // Re-authenticate with current password before updating
+    const credential = firebase.auth.EmailAuthProvider.credential(user.email, cur);
+    await user.reauthenticateWithCredential(credential);
+    await user.updatePassword(newPwd);
+
+    ['pwd-current','pwd-new','pwd-confirm'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('pwd-strength-fill').style.width = '0';
+    document.getElementById('pwd-strength-hint').textContent = 'Enter a new password';
+    document.getElementById('pwd-strength-hint').style.color = '';
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✓ Password updated successfully.';
+    showToast('Admin password updated', 'success');
+    setTimeout(() => { msg.textContent = ''; }, 4000);
+  } catch (err) {
+    const map = {
+      'auth/wrong-password':        '✗ Current password is incorrect.',
+      'auth/invalid-credential':    '✗ Current password is incorrect.',
+      'auth/weak-password':         '⚠ New password is too weak (min 6 chars).',
+      'auth/requires-recent-login': '⚠ Session expired — please log out and log in again.',
+      'auth/too-many-requests':     '⚠ Too many attempts. Try again later.',
+    };
+    msg.textContent = map[err.code] || `✗ Error: ${err.message}`;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -142,27 +163,108 @@ function makeChart(id, cfg) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   AUTH
+   AUTH — Firebase Email/Password
 ═══════════════════════════════════════════════════════════ */
-function doLogin() {
-  const pass = document.getElementById('login-pass').value;
-  if (pass === ADMIN_PASS) {
-    document.getElementById('login-err').textContent = '';
-    sessionStorage.setItem('nt_admin_auth', '1');
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    initFirestoreListeners();
-  } else if (pass.length >= ADMIN_PASS.length) {
-    document.getElementById('login-err').textContent = 'Incorrect password. Access denied.';
-    document.getElementById('login-pass').value = '';
-  } else {
-    document.getElementById('login-err').textContent = '';
+
+/** Show login screen, hide app */
+function _showLoginScreen() {
+  const ls  = document.getElementById('login-screen');
+  const app = document.getElementById('app');
+  if (ls)  { ls.style.display  = 'flex'; }
+  if (app) { app.style.display = 'none'; }
+}
+
+/** Hide login screen, show app */
+function _showApp() {
+  const ls  = document.getElementById('login-screen');
+  const app = document.getElementById('app');
+  if (ls)  { ls.style.display  = 'none'; }
+  if (app) { app.style.display = 'flex'; }
+}
+
+/** Assign / refresh admin role in Firestore */
+async function _ensureAdminRole(user) {
+  if (!db) return;
+  try {
+    await db.collection('adminRoles').doc(user.uid).set({
+      uid:       user.uid,
+      email:     user.email,
+      role:      'admin',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch (e) {
+    console.warn('[Admin] Could not write adminRole:', e);
   }
 }
 
-function doLogout() {
-  sessionStorage.removeItem('nt_admin_auth');
-  location.reload();
+/** Firebase Email/Password sign-in */
+async function doLogin() {
+  const email = (document.getElementById('login-email')?.value || '').trim();
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-err');
+  const btn   = document.getElementById('login-btn');
+
+  if (!email || !pass) {
+    errEl.textContent = '⚠ Please enter your email and password.';
+    return;
+  }
+
+  errEl.textContent = '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Authenticating…'; }
+
+  try {
+    await _auth.signInWithEmailAndPassword(email, pass);
+    // onAuthStateChanged handles the rest
+  } catch (err) {
+    const map = {
+      'auth/invalid-email':      '✗ Invalid email address.',
+      'auth/user-not-found':     '✗ No account found for this email.',
+      'auth/wrong-password':     '✗ Incorrect password. Access denied.',
+      'auth/invalid-credential': '✗ Incorrect email or password. Access denied.',
+      'auth/user-disabled':      '✗ This account has been disabled.',
+      'auth/too-many-requests':  '⚠ Too many failed attempts. Try again later or reset your password.',
+      'auth/network-request-failed': '⚠ Network error. Check your connection.',
+    };
+    errEl.textContent = map[err.code] || `✗ Authentication failed: ${err.message}`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'AUTHENTICATE →'; }
+  }
+}
+
+/** Firebase sign-out */
+async function doLogout() {
+  try {
+    await _auth.signOut();
+    // onAuthStateChanged will redirect to login screen
+  } catch (e) {
+    console.error('[Admin] Sign-out error:', e);
+    location.reload();
+  }
+}
+
+/** Firebase password reset email */
+async function doForgotPassword() {
+  const email  = (document.getElementById('login-email')?.value || '').trim();
+  const errEl  = document.getElementById('login-err');
+  if (!email) {
+    errEl.style.color = 'var(--amber, #f0b429)';
+    errEl.textContent = '⚠ Enter your email address above first.';
+    setTimeout(() => { errEl.textContent = ''; errEl.style.color = ''; }, 4000);
+    return;
+  }
+  try {
+    await _auth.sendPasswordResetEmail(email);
+    errEl.style.color = 'var(--green, #34d399)';
+    errEl.textContent = '✓ Password reset email sent. Check your inbox.';
+    setTimeout(() => { errEl.textContent = ''; errEl.style.color = ''; }, 6000);
+  } catch (err) {
+    errEl.style.color = '';
+    const map = {
+      'auth/invalid-email':  '✗ Invalid email address.',
+      'auth/user-not-found': '✗ No account found for this email.',
+    };
+    errEl.textContent = map[err.code] || `✗ Error: ${err.message}`;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -195,16 +297,10 @@ function initFirestoreListeners() {
   setDbStatus('connecting');
 
   try {
-    if (!firebase.apps.length) {
-      firebase.initializeApp(FIREBASE_CONFIG);
-    }
-    db = firebase.firestore();
-
-    // ── Realtime Database init ─────────────────────────────────────
+    db   = firebase.firestore();
     rtdb = firebase.database();
     console.log('[Admin] RTDB initialised — attaching presence listener');
     _attachRTDBListeners();
-
   } catch (err) {
     console.error('[Admin] Firebase init failed:', err);
     setDbStatus('error');
@@ -212,7 +308,7 @@ function initFirestoreListeners() {
     return;
   }
 
-  // ── Connect directly to Firestore — admin password IS the security layer ──
+  // ── Firestore listeners — protected by Firebase Auth rules ──
   console.log('[Admin] Attaching Firestore listeners');
   _attachFirestoreListeners();
 }
@@ -1455,10 +1551,7 @@ _updateClock(); setInterval(_updateClock, 1000);
 /* ── Refresh presence display every 30s for accurate "ago" times ── */
 setInterval(() => { _updatePresenceKPIs(); _renderLiveUsersTable(); }, 30_000);
 
-/* ── Enter key on login ── */
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
-});
+/* ── Enter key on login handled via onkeydown on input fields ── */
 
 /* ═══════════════════════════════════════════════════════════
    PWA — ICON GENERATOR (runtime canvas-based)
@@ -2203,12 +2296,22 @@ window.addEventListener('click', (e) => {
   _initSWUpdateDetection();
   // Set initial "checking" status in settings card
   setTimeout(() => _setUpdStatus('checking', 'Checking for admin updates…'), 300);
-  // Auto-restore session if already authenticated
-  if (sessionStorage.getItem('nt_admin_auth') === '1') {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    initFirestoreListeners();
-  }
+
+  // ── Firebase Auth state is the single source of truth for routing ──
+  _auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      // Authenticated — wire up Firestore and show the app
+      if (!db) initFirestoreListeners();
+      await _ensureAdminRole(user);
+      _showApp();
+      console.log(`[Admin] Signed in as ${user.email}`);
+    } else {
+      // Not authenticated — show login screen; detach any live listeners
+      _fsUnsubs.forEach(u => { try { u(); } catch(_) {} });
+      _fsUnsubs.length = 0;
+      _showLoginScreen();
+    }
+  });
 })();
 
 /* ═══════════════════════════════════════════════════════════

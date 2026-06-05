@@ -92,11 +92,18 @@
     </div>
     <div class="login-badge">RESTRICTED ACCESS</div>
     <div class="login-field">
-      <label>Admin Password</label>
-      <input type="password" id="login-pass" placeholder="Enter admin password…" autocomplete="current-password" oninput="doLogin()">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') doLogin()">
     </div>
-    <button class="login-btn" onclick="doLogin()">AUTHENTICATE →</button>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="Enter password…" autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">AUTHENTICATE →</button>
     <div id="login-err"></div>
+    <div style="text-align:center; margin-top:12px">
+      <a href="#" onclick="doForgotPassword(); return false;" style="font-size:11px; color:#6b82a0; text-decoration:underline; letter-spacing:0.04em;">Forgot password?</a>
+    </div>
   </div>
 </div>
 
