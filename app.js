@@ -1368,6 +1368,7 @@ function switchTab(tab) {
     home:      'ttn-home',
     settings:  'ttn-settings',
     library:   'ttn-library',
+    fooddb:    'ttn-fooddb',
   };
   const ttnTarget = ttnMap[tab];
   if (ttnTarget) document.getElementById(ttnTarget)?.classList.add('active');
