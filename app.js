@@ -498,6 +498,18 @@ function _attachFirestoreListeners() {
       }
     }, err => console.warn('[Admin] stats listener error:', err));
 
+  // ── 6. PACKAGED FOODS — count listener for KPI badges ──────────
+  // Does NOT load all documents — only the live count badge and KPI strip.
+  // The full table is loaded lazily when the tab opens (FoodDB.init).
+  try {
+    db.collection('packaged_foods').onSnapshot(snap => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      FoodDB._allDocs = docs;
+      FoodDB._updateKPIs();
+      _set('nb-fooddb', docs.length || '');
+    }, err => console.warn('[Admin] packaged_foods listener error:', err));
+  } catch(e) {}
+
   // Connection watchdog: if no listener fires within 12s, show error (no fallback)
   setTimeout(() => {
     if (_fsReady < 1) {
@@ -1371,7 +1383,7 @@ function switchTab(tab) {
   if (Array.isArray(btnTarget)) btnTarget.forEach(id => document.getElementById(id)?.classList.add('active'));
   else if (btnTarget) document.getElementById(btnTarget)?.classList.add('active');
 
-  const labels = { home:'Home', overview:'Overview', analytics:'Analytics', online:'Online', sessions:'Sessions', feedback:'Feedback', settings:'Settings', users:'Users', errors:'Error Log', offline:'Offline Usage', library:'Library' };
+  const labels = { home:'Home', overview:'Overview', analytics:'Analytics', online:'Online', sessions:'Sessions', feedback:'Feedback', settings:'Settings', users:'Users', errors:'Error Log', offline:'Offline Usage', library:'Library', fooddb:'Food Database' };
   document.getElementById('content-title').textContent = labels[tab] || tab;
 
   if (tab === 'overview')  { setTimeout(_renderOverviewCharts, 50); }
@@ -1382,6 +1394,7 @@ function switchTab(tab) {
   if (tab === 'errors')    { setTimeout(renderErrorLog, 50); }
   if (tab === 'offline')   { setTimeout(renderOfflineTab, 50); }
   if (tab === 'library')   { setTimeout(() => { if (window.LibAdmin) LibAdmin.init(); }, 50); }
+  if (tab === 'fooddb')    { setTimeout(() => FoodDB.init(), 50); }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2688,3 +2701,418 @@ function renderOfflineTab() {
     `).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">No offline sessions found</td></tr>';
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   FOOD DATABASE ADMIN MODULE
+   CRUD for Firestore `packaged_foods` collection.
+
+   Schema per document:
+     name, nameLower, brand, barcode, category, country,
+     per100g: { kcal, kj, pro, cho, fat, fiber, sugar, sodium },
+     servingSize, servingLabel, image, verified,
+     addedBy, addedAt, updatedAt
+
+   All reads / writes go directly through the shared `db` instance.
+═══════════════════════════════════════════════════════════ */
+const FoodDB = (function () {
+  'use strict';
+
+  /* ── Private state ── */
+  let _allDocs       = [];   // in-memory mirror from Firestore onSnapshot
+  let _filteredDocs  = [];
+  let _page          = 0;
+  const PAGE_SIZE    = 25;
+  let _search        = '';
+  let _catFilter     = '';
+  let _countryFilter = '';
+  let _verifiedFilter = 'all';
+  let _editDocId     = null; // null = add mode
+  let _delDocId      = null;
+  let _delDocName    = '';
+
+  /* ── Init — called when tab opens ── */
+  function init() {
+    _page = 0;
+    _applyFilters();
+    _render();
+  }
+
+  /* ── KPI strip ── */
+  function _updateKPIs() {
+    const total     = _allDocs.length;
+    const verified  = _allDocs.filter(d => d.verified).length;
+    const withBC    = _allDocs.filter(d => d.barcode).length;
+    const countries = new Set(_allDocs.map(d => d.country).filter(Boolean)).size;
+    _set('fdb-kpi-total',     total);
+    _set('fdb-kpi-verified',  verified);
+    _set('fdb-kpi-barcode',   withBC);
+    _set('fdb-kpi-countries', countries);
+    _set('nb-fooddb',         total || '');
+  }
+
+  /* ── Filter + sort ── */
+  function _applyFilters() {
+    const q = _search.toLowerCase();
+    _filteredDocs = _allDocs.filter(d => {
+      if (_catFilter     && d.category !== _catFilter)  return false;
+      if (_countryFilter && d.country  !== _countryFilter) return false;
+      if (_verifiedFilter === 'true'  && !d.verified)   return false;
+      if (_verifiedFilter === 'false' && d.verified)    return false;
+      if (q) {
+        const name  = (d.name  || '').toLowerCase();
+        const brand = (d.brand || '').toLowerCase();
+        const bc    = (d.barcode || '');
+        if (!name.includes(q) && !brand.includes(q) && !bc.includes(q)) return false;
+      }
+      return true;
+    });
+    _filteredDocs.sort((a, b) => (a.nameLower || '').localeCompare(b.nameLower || ''));
+    _set('fdb-count-label', _filteredDocs.length + ' entr' + (_filteredDocs.length !== 1 ? 'ies' : 'y'));
+  }
+
+  /* ── Table render ── */
+  function _render() {
+    const tbody = document.getElementById('fdb-tbody');
+    if (!tbody) return;
+    _applyFilters();
+
+    const totalPages = Math.max(1, Math.ceil(_filteredDocs.length / PAGE_SIZE));
+    if (_page >= totalPages) _page = totalPages - 1;
+    const slice = _filteredDocs.slice(_page * PAGE_SIZE, (_page + 1) * PAGE_SIZE);
+
+    _set('fdb-pg-info', 'Page ' + (_page + 1) + ' / ' + totalPages);
+    const prev = document.getElementById('fdb-pg-prev');
+    const next = document.getElementById('fdb-pg-next');
+    if (prev) prev.disabled = _page === 0;
+    if (next) next.disabled = _page >= totalPages - 1;
+
+    if (!slice.length) {
+      tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">🍱</div>No entries match — use ➕ Add Entry to start building the database.</div></td></tr>';
+      return;
+    }
+
+    const macroFmt = v => (v != null && v !== '') ? (+v).toFixed(1) : '—';
+    const FLAG = { MW:'🇲🇼', ZA:'🇿🇦', TZ:'🇹🇿', ZM:'🇿🇲', KE:'🇰🇪', MZ:'🇲🇿', ZW:'🇿🇼' };
+
+    tbody.innerHTML = slice.map(d => {
+      const n = d.per100g || {};
+      const flag = FLAG[d.country] || d.country || '—';
+      const verBadge = d.verified
+        ? '<span class="badge badge-green" style="font-size:9px">✅ Verified</span>'
+        : '<span class="badge badge-dim"   style="font-size:9px">⏳ Draft</span>';
+      const bcDisplay = d.barcode
+        ? '<span style="font-family:var(--mono);font-size:10px;color:var(--amber)">' + _esc(d.barcode) + '</span>'
+        : '<span style="color:var(--text-muted);font-size:10px">—</span>';
+      return '<tr>' +
+        '<td style="min-width:140px"><strong style="color:var(--text)">' + _esc(d.name || '—') + '</strong>' +
+          (d.brand ? '<br><span style="font-size:10px;color:var(--text-dim)">' + _esc(d.brand) + '</span>' : '') + '</td>' +
+        '<td><span class="badge badge-dim" style="font-size:9px">' + _esc(d.category || '—') + '</span></td>' +
+        '<td>' + bcDisplay + '</td>' +
+        '<td style="color:var(--amber);font-weight:600">' + macroFmt(n.kcal) + '</td>' +
+        '<td style="color:var(--blue)">'   + macroFmt(n.pro)  + '</td>' +
+        '<td style="color:var(--teal)">'   + macroFmt(n.cho)  + '</td>' +
+        '<td style="color:var(--green)">'  + macroFmt(n.fat)  + '</td>' +
+        '<td>' + flag + '</td>' +
+        '<td>' + verBadge + '</td>' +
+        '<td style="white-space:nowrap">' +
+          '<button class="urm-edit-btn" style="margin-right:4px" onclick="FoodDB.openEditModal(\'' + d.id + '\')">✏ Edit</button>' +
+          '<button class="urm-edit-btn" style="color:var(--red);border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.06)" ' +
+            'onclick="FoodDB.openDelModal(\'' + d.id + '\',\'' + _esc((d.name||'').replace(/'/g,"&#39;")) + '\')">🗑</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  /* ── Public filter hooks ── */
+  function onSearch(v) { _search = v; _page = 0; _render(); }
+  function setCatFilter(v) { _catFilter = v; _page = 0; _render(); }
+  function setCountryFilter(v) { _countryFilter = v; _page = 0; _render(); }
+  function setVerifiedFilter(chip, val) {
+    document.querySelectorAll('#fdb-verified-filter .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    _verifiedFilter = val;
+    _page = 0;
+    _render();
+  }
+  function nextPage() { _page++; _render(); }
+  function prevPage() { if (_page > 0) { _page--; _render(); } }
+
+  /* ── Modal helpers ── */
+  function _clearModal() {
+    ['fdb-f-name','fdb-f-brand','fdb-f-barcode','fdb-f-image',
+     'fdb-f-kcal','fdb-f-kj','fdb-f-pro','fdb-f-cho','fdb-f-fat',
+     'fdb-f-fiber','fdb-f-sugar','fdb-f-sodium',
+     'fdb-f-serving-size','fdb-f-serving-label'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const verEl = document.getElementById('fdb-f-verified');
+    if (verEl) verEl.checked = false;
+    const catEl = document.getElementById('fdb-f-category');
+    if (catEl) catEl.value = 'Protein Foods';
+    const ctyEl = document.getElementById('fdb-f-country');
+    if (ctyEl) ctyEl.value = 'MW';
+    const errEl = document.getElementById('fdb-modal-err');
+    if (errEl) errEl.textContent = '';
+  }
+
+  function _fillModal(d) {
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+    set('fdb-f-name',          d.name          || '');
+    set('fdb-f-brand',         d.brand         || '');
+    set('fdb-f-barcode',       d.barcode       || '');
+    set('fdb-f-image',         d.image         || '');
+    set('fdb-f-category',      d.category      || 'Packaged');
+    set('fdb-f-country',       d.country       || 'MW');
+    set('fdb-f-serving-size',  d.servingSize   ?? '');
+    set('fdb-f-serving-label', d.servingLabel  || '');
+    const n = d.per100g || {};
+    set('fdb-f-kcal',  n.kcal  ?? '');
+    set('fdb-f-kj',    n.kj    ?? '');
+    set('fdb-f-pro',   n.pro   ?? '');
+    set('fdb-f-cho',   n.cho   ?? '');
+    set('fdb-f-fat',   n.fat   ?? '');
+    set('fdb-f-fiber', n.fiber ?? '');
+    set('fdb-f-sugar', n.sugar ?? '');
+    set('fdb-f-sodium',n.sodium?? '');
+    const verEl = document.getElementById('fdb-f-verified');
+    if (verEl) verEl.checked = !!d.verified;
+  }
+
+  function openAddModal() {
+    _editDocId = null;
+    _clearModal();
+    _set('fdb-modal-title', '➕ Add Packaged Food');
+    const btn = document.getElementById('fdb-save-btn');
+    if (btn) btn.textContent = '💾 Save Entry';
+    document.getElementById('fdb-modal-overlay').style.display = 'flex';
+  }
+
+  function openEditModal(docId) {
+    const d = _allDocs.find(x => x.id === docId);
+    if (!d) return;
+    _editDocId = docId;
+    _clearModal();
+    _fillModal(d);
+    _set('fdb-modal-title', '✏ Edit — ' + (d.name || docId));
+    const btn = document.getElementById('fdb-save-btn');
+    if (btn) btn.textContent = '💾 Update Entry';
+    document.getElementById('fdb-modal-overlay').style.display = 'flex';
+  }
+
+  function closeModal() {
+    document.getElementById('fdb-modal-overlay').style.display = 'none';
+    _editDocId = null;
+  }
+
+  function openDelModal(docId, name) {
+    _delDocId   = docId;
+    _delDocName = name;
+    _set('fdb-del-name', name || docId);
+    document.getElementById('fdb-del-overlay').style.display = 'flex';
+  }
+
+  function closeDelModal() {
+    document.getElementById('fdb-del-overlay').style.display = 'none';
+    _delDocId = null;
+  }
+
+  /* ── Read form → data object ── */
+  function _readForm() {
+    const v = id => (document.getElementById(id)?.value || '').trim();
+    const n = id => { const raw = v(id); return raw !== '' ? +raw : null; };
+
+    const name = v('fdb-f-name');
+    if (!name) return null;
+
+    const kcal = n('fdb-f-kcal');
+    let   kj   = n('fdb-f-kj');
+    if (kj == null && kcal != null) kj = +(kcal * 4.184).toFixed(0);
+
+    const barcode = v('fdb-f-barcode').replace(/\D/g, '') || null;
+
+    return {
+      name,
+      nameLower:    name.toLowerCase(),
+      brand:        v('fdb-f-brand')  || null,
+      barcode,
+      category:     v('fdb-f-category') || 'Packaged',
+      country:      v('fdb-f-country')  || 'MW',
+      per100g: {
+        kcal:   kcal,
+        kj:     kj,
+        pro:    n('fdb-f-pro'),
+        cho:    n('fdb-f-cho'),
+        fat:    n('fdb-f-fat'),
+        fiber:  n('fdb-f-fiber'),
+        sugar:  n('fdb-f-sugar'),
+        sodium: n('fdb-f-sodium'),
+      },
+      servingSize:  n('fdb-f-serving-size'),
+      servingLabel: v('fdb-f-serving-label') || null,
+      image:        v('fdb-f-image') || null,
+      verified:     document.getElementById('fdb-f-verified')?.checked ?? false,
+    };
+  }
+
+  /* ── Validate ── */
+  function _validate(d) {
+    if (!d.name) return 'Product name is required.';
+    const n = d.per100g;
+    if (n.kcal == null) return 'Energy (kcal) is required.';
+    if (n.pro  == null) return 'Protein (g) is required.';
+    if (n.cho  == null) return 'Carbohydrate (g) is required.';
+    if (n.fat  == null) return 'Fat (g) is required.';
+    if (d.barcode && !/^\d{8,14}$/.test(d.barcode)) return 'Barcode must be 8–14 digits.';
+    return null;
+  }
+
+  /* ── Save (add or update) ── */
+  async function saveEntry() {
+    const errEl = document.getElementById('fdb-modal-err');
+    const btn   = document.getElementById('fdb-save-btn');
+    if (errEl) errEl.textContent = '';
+
+    const data = _readForm();
+    if (!data) { if (errEl) errEl.textContent = '⚠ Product name is required.'; return; }
+    const err = _validate(data);
+    if (err) { if (errEl) errEl.textContent = '⚠ ' + err; return; }
+
+    if (!db) { if (errEl) errEl.textContent = '✕ Firestore not connected.'; return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      const ts = firebase.firestore.FieldValue.serverTimestamp();
+      if (_editDocId) {
+        // Update
+        await db.collection('packaged_foods').doc(_editDocId).set({
+          ...data, updatedAt: ts,
+        }, { merge: true });
+        showToast('✓ Entry updated: ' + data.name, 'success');
+      } else {
+        // Add
+        const user = typeof _auth !== 'undefined' ? _auth.currentUser : null;
+        await db.collection('packaged_foods').add({
+          ...data,
+          addedBy:  user?.email || 'admin',
+          addedAt:  ts,
+          updatedAt: ts,
+        });
+        showToast('✓ Entry added: ' + data.name, 'success');
+      }
+      closeModal();
+      // _allDocs will refresh via onSnapshot; re-render immediately from local state
+      _render();
+    } catch (e) {
+      if (errEl) errEl.textContent = '✕ Save failed: ' + e.message;
+      console.error('[FoodDB] saveEntry:', e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = _editDocId ? '💾 Update Entry' : '💾 Save Entry';
+    }
+  }
+
+  /* ── Delete ── */
+  async function confirmDelete() {
+    if (!_delDocId || !db) return;
+    try {
+      await db.collection('packaged_foods').doc(_delDocId).delete();
+      showToast('🗑 Deleted: ' + _delDocName, 'success');
+      closeDelModal();
+    } catch (e) {
+      showToast('Delete failed: ' + e.message, 'error');
+    }
+  }
+
+  /* ── Quick-import via Open Food Facts ── */
+  async function importByBarcode() {
+    const bc  = (document.getElementById('fdb-import-barcode')?.value || '').replace(/\D/g, '');
+    const log = document.getElementById('fdb-import-log');
+    if (!bc || bc.length < 8) {
+      if (log) log.textContent = '⚠ Enter a valid barcode (8–14 digits).';
+      return;
+    }
+    if (log) log.textContent = '⏳ Querying Open Food Facts…';
+
+    try {
+      // First check if barcode already exists in our DB
+      if (db) {
+        const snap = await db.collection('packaged_foods').where('barcode', '==', bc).limit(1).get();
+        if (!snap.empty) {
+          if (log) log.innerHTML = '⚠ Barcode <strong>' + bc + '</strong> already exists in the database.';
+          return;
+        }
+      }
+
+      // Query Open Food Facts (free, no API key)
+      const res  = await fetch('https://world.openfoodfacts.org/api/v0/product/' + bc + '.json',
+                               { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+
+      if (json.status !== 1 || !json.product) {
+        if (log) log.textContent = '✕ Product not found in Open Food Facts for barcode ' + bc + '.';
+        return;
+      }
+
+      const p   = json.product;
+      const n   = p.nutriments || {};
+      const get = (...keys) => { for (const k of keys) { if (n[k] != null) return +n[k]; } return null; };
+
+      // Pre-fill the add modal
+      openAddModal();
+      const set = (id, val) => { const el = document.getElementById(id); if (el && val != null && val !== '') el.value = val; };
+
+      set('fdb-f-name',    p.product_name_en || p.product_name || p.product_name_fr || '');
+      set('fdb-f-brand',   p.brands || '');
+      set('fdb-f-barcode', bc);
+      set('fdb-f-image',   p.image_url || '');
+
+      const kcalVal = get('energy-kcal_100g', 'energy-kcal');
+      set('fdb-f-kcal',  kcalVal != null ? kcalVal.toFixed(1) : '');
+      set('fdb-f-kj',    get('energy_100g','energy') != null ? (+get('energy_100g','energy')).toFixed(0) : '');
+      set('fdb-f-pro',   get('proteins_100g','proteins') != null ? (+get('proteins_100g','proteins')).toFixed(1) : '');
+      set('fdb-f-cho',   get('carbohydrates_100g','carbohydrates') != null ? (+get('carbohydrates_100g','carbohydrates')).toFixed(1) : '');
+      set('fdb-f-fat',   get('fat_100g','fat') != null ? (+get('fat_100g','fat')).toFixed(1) : '');
+      set('fdb-f-fiber', get('fiber_100g','fiber') != null ? (+get('fiber_100g','fiber')).toFixed(1) : '');
+      set('fdb-f-sugar', get('sugars_100g','sugars') != null ? (+get('sugars_100g','sugars')).toFixed(1) : '');
+      set('fdb-f-sodium',get('sodium_100g','sodium') != null ? (+get('sodium_100g','sodium')).toFixed(3) : '');
+
+      const catMap = {
+        'en:cereals-and-their-products': 'Staples',
+        'en:legumes': 'Legumes', 'en:pulses': 'Legumes',
+        'en:meats': 'Protein Foods', 'en:fish': 'Protein Foods',
+        'en:dairy': 'Dairy', 'en:milks': 'Dairy',
+        'en:beverages': 'Beverages', 'en:snacks': 'Snacks',
+        'en:baby-foods': 'Infant Formula',
+      };
+      const cats = (p.categories_tags || []);
+      let mappedCat = 'Packaged';
+      for (const c of cats) { if (catMap[c]) { mappedCat = catMap[c]; break; } }
+      set('fdb-f-category', mappedCat);
+
+      if (log) log.innerHTML = '✓ Pre-filled from Open Food Facts — <strong>' + _esc(p.product_name_en || p.product_name || bc) + '</strong>. Review and save.';
+      if (document.getElementById('fdb-import-barcode')) document.getElementById('fdb-import-barcode').value = '';
+
+    } catch (e) {
+      if (log) log.textContent = '✕ Lookup failed: ' + e.message;
+    }
+  }
+
+  /* ── Public API ── */
+  return {
+    get _allDocs() { return _allDocs; },
+    set _allDocs(v) { _allDocs = v; },
+    init,
+    _updateKPIs,
+    onSearch, setCatFilter, setCountryFilter, setVerifiedFilter,
+    nextPage, prevPage,
+    openAddModal, openEditModal, closeModal,
+    openDelModal, closeDelModal,
+    saveEntry, confirmDelete,
+    importByBarcode,
+  };
+})();
