@@ -101,8 +101,50 @@
     </div>
     <button class="login-btn" id="login-btn" onclick="doLogin()">AUTHENTICATE →</button>
     <div id="login-err"></div>
-    <div style="text-align:center; margin-top:12px">
+    <div style="text-align:center; margin-top:12px; display:flex; justify-content:space-between;">
       <a href="#" onclick="doForgotPassword(); return false;" style="font-size:11px; color:#6b82a0; text-decoration:underline; letter-spacing:0.04em;">Forgot password?</a>
+      <a href="#" onclick="showRegisterPanel(); return false;" style="font-size:11px; color:#60a5fa; text-decoration:underline; letter-spacing:0.04em;">Register as Admin</a>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ REGISTER PANEL ════════════════ -->
+<div id="register-screen" style="display:none; position:fixed; inset:0; z-index:10000; background:var(--bg); align-items:center; justify-content:center;">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-ring">
+        <div class="llr-ring-1"></div>
+        <div class="llr-ring-2"></div>
+        <div class="llr-circle" style="font-size:18px; display:flex; align-items:center; justify-content:center;">🛡</div>
+      </div>
+      <div>
+        <div class="login-logo-text">Oasis <span style="color:var(--blue)">Admin</span></div>
+        <div class="login-logo-sub">Request Admin Access</div>
+      </div>
+    </div>
+    <div class="login-badge" style="background:rgba(96,165,250,0.06); border-color:rgba(96,165,250,0.2); color:var(--blue);">NEW ADMIN REGISTRATION</div>
+    <div class="login-field">
+      <label>Full Name</label>
+      <input type="text" id="reg-name" placeholder="Dr. Jane Banda" autocomplete="name" onkeydown="if(event.key==='Enter') doRegister()">
+    </div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="reg-email" placeholder="admin@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') doRegister()">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="reg-pass" placeholder="Min. 8 characters" autocomplete="new-password" oninput="evalRegPwdStrength(this.value)" onkeydown="if(event.key==='Enter') doRegister()">
+      <div class="pwd-strength-bar" style="margin-top:6px"><div class="pwd-strength-fill" id="reg-pwd-fill"></div></div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:4px" id="reg-pwd-hint">Choose a strong password</div>
+    </div>
+    <div class="login-field">
+      <label>Confirm Password</label>
+      <input type="password" id="reg-confirm" placeholder="Repeat password" autocomplete="new-password" onkeydown="if(event.key==='Enter') doRegister()">
+    </div>
+    <button class="login-btn" id="register-btn" onclick="doRegister()" style="border-color:rgba(96,165,250,0.4); color:var(--blue);">REQUEST ACCESS →</button>
+    <div id="register-err" style="font-family:var(--mono); font-size:10px; color:var(--red); margin-top:10px; text-align:center; min-height:16px;"></div>
+    <div style="text-align:center; margin-top:12px;">
+      <a href="#" onclick="hideRegisterPanel(); return false;" style="font-size:11px; color:#6b82a0; text-decoration:underline; letter-spacing:0.04em;">← Back to Login</a>
     </div>
   </div>
 </div>
