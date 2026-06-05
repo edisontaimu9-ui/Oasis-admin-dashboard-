@@ -188,7 +188,6 @@
     <div class="ttn-item active" id="ttn-home"      onclick="switchTab('home')">      <span class="ttn-icon">🏠</span> Home</div>
     <div class="ttn-item"        id="ttn-library"   onclick="switchTab('library')">   <span class="ttn-icon">📚</span> Library</div>
     <div class="ttn-item"        id="ttn-settings"  onclick="switchTab('settings')">  <span class="ttn-icon">⚙️</span> Settings</div>
-    <div class="ttn-item"        id="ttn-developer" onclick="switchTab('developer')"> <span class="ttn-icon">👤</span> Developer</div>
   </nav>
 
   <!-- BODY -->
@@ -215,7 +214,6 @@
       <div class="nav-item"        id="nav-library"   onclick="switchTab('library')">   <span class="nav-icon">📚</span><span class="nav-label">Library</span>    <span class="nav-badge" id="nb-library">—</span></div>
       <div class="nav-sep"></div>
       <div class="nav-item"        id="nav-settings"  onclick="switchTab('settings')">  <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
-      <div class="nav-item"        id="nav-developer" onclick="switchTab('developer')"> <span class="nav-icon">👤</span><span class="nav-label">Developer</span></div>
       <div class="sidebar-footer">
         <div class="sidebar-info" id="sidebar-db-info">🔥 Firestore · Connecting…<br>🛡 Auth · Admin<br>📦 1.0.0 · Apr 2026 · Apr 2026</div>
       </div>
@@ -444,7 +442,6 @@
                 <span class="stg-lbl">Theme</span>
                 <div class="chip-group" id="sg-theme">
                   <div class="chip active" data-val="dark"   onclick="setSetting('theme','dark',this)">🌙 Dark</div>
-                  <div class="chip"        data-val="light"  onclick="setSetting('theme','light',this)">☀️ Light</div>
                   <div class="chip"        data-val="amoled" onclick="setSetting('theme','amoled',this)">⬛ AMOLED</div>
                   <div class="chip"        data-val="hc"     onclick="setSetting('theme','hc',this)">♿ HC</div>
                   <div class="chip"        data-val="auto"   onclick="setSetting('theme','auto',this)">💻 Auto</div>
@@ -654,100 +651,6 @@
           <div class="err-empty" id="err-empty">No errors recorded this session.</div>
         </div>
       </div><!-- /errors -->
-
-      <!-- ══════ DEVELOPER PROFILE ══════ -->
-      <div class="tab-pane" id="tab-developer">
-
-        <div class="stg-page-title">👤 Developer Profile</div>
-
-        <div class="stg-two-col">
-
-          <!-- LEFT: Profile Info -->
-          <div class="stg-col">
-
-            <!-- Photo Card -->
-            <div class="stg-card">
-              <div class="stg-card-hdr">🖼 Profile Photo</div>
-              <div class="dev-photo-section">
-                <div class="dev-avatar-wrap">
-                  <div class="dev-avatar-circle" id="dev-avatar-preview">
-                    <span class="dev-avatar-placeholder">👤</span>
-                    <img id="dev-avatar-img" src="" alt="Profile photo" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                  </div>
-                  <div class="dev-avatar-actions">
-                    <label class="dev-upload-btn" for="dev-photo-input">📷 Choose Photo</label>
-                    <input type="file" id="dev-photo-input" accept="image/*" style="display:none" onchange="devOpenCrop(event)">
-                    <button class="dev-remove-btn" id="dev-remove-photo" onclick="devRemovePhoto()" style="display:none">✕ Remove</button>
-                  </div>
-                </div>
-                <div class="dev-photo-hint">Upload a photo to open the crop editor. Output: 400×400 JPEG.</div>
-              </div>
-            </div>
-
-            <!-- Basic Info Card -->
-            <div class="stg-card">
-              <div class="stg-card-hdr">📋 Basic Information</div>
-              <div class="dev-form-body">
-                <div class="dev-field">
-                  <label class="dev-label">Full Name</label>
-                  <input type="text" class="dev-input" id="dev-name" placeholder="e.g. Edison Taimu">
-                </div>
-                <div class="dev-field">
-                  <label class="dev-label">Role / Title</label>
-                  <input type="text" class="dev-input" id="dev-role" placeholder="e.g. Clinical Nutrition Scientist">
-                </div>
-                <div class="dev-field">
-                  <label class="dev-label">Institution</label>
-                  <input type="text" class="dev-input" id="dev-institution" placeholder="e.g. Kilimanjaro University of Health & Allied Sciences">
-                </div>
-                <div class="dev-field">
-                  <label class="dev-label">Bio</label>
-                  <textarea class="dev-input dev-textarea" id="dev-bio" placeholder="A short description about the developer, research interests, or background…" rows="5"></textarea>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- RIGHT: Links + Save -->
-          <div class="stg-col">
-
-            <div class="stg-card">
-              <div class="stg-card-hdr">🔗 Profile Links</div>
-              <div class="dev-form-body">
-                <div class="dev-field">
-                  <label class="dev-label">✉️ Email</label>
-                  <input type="email" class="dev-input" id="dev-email" placeholder="name@institution.ac.tz">
-                </div>
-                <div class="dev-field">
-                  <label class="dev-label">🐙 GitHub</label>
-                  <input type="url" class="dev-input" id="dev-github" placeholder="https://github.com/username">
-                </div>
-                <div class="dev-field">
-                  <label class="dev-label">💼 LinkedIn</label>
-                  <input type="url" class="dev-input" id="dev-linkedin" placeholder="https://linkedin.com/in/username">
-                </div>
-                <div class="dev-field" style="border-bottom:none">
-                  <label class="dev-label">🐦 Twitter / X</label>
-                  <input type="url" class="dev-input" id="dev-twitter" placeholder="https://twitter.com/username">
-                </div>
-              </div>
-            </div>
-
-            <div class="stg-card">
-              <div class="stg-card-hdr">💾 Save Profile</div>
-              <div style="padding:14px">
-                <div class="dev-save-info">Profile is stored in Firestore at <code class="dev-path">app_config/developer_profile</code> and used in the Oasis about screen.</div>
-                <button class="dev-save-btn" id="dev-save-btn" onclick="devSaveProfile()">
-                  💾 SAVE DEVELOPER PROFILE →
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-      </div><!-- /developer -->
 
       <!-- ══════ LIBRARY MODERATION ══════ -->
       <div class="tab-pane" id="tab-library">
@@ -962,37 +865,6 @@
 ═══════════════════════════════════════════════════════════ -->
 <script src="app.js"></script>
 <script src="library_admin.js"></script>
-
-<!-- ════════════════ DEVELOPER PHOTO CROP MODAL ════════════════ -->
-<div id="dev-crop-overlay" class="dev-crop-overlay" style="display:none">
-  <div class="dev-crop-modal">
-    <div class="dev-crop-hdr">
-      <span>✂️ Crop Photo</span>
-      <button class="dev-crop-close" onclick="devCloseCrop()">✕</button>
-    </div>
-    <div class="dev-crop-stage">
-      <canvas id="dev-crop-canvas" class="dev-crop-canvas"></canvas>
-      <div class="dev-crop-ring"></div>
-    </div>
-    <div class="dev-crop-controls">
-      <div class="dev-ctrl-row">
-        <label class="dev-ctrl-lbl">🔍 Zoom</label>
-        <input type="range" id="dev-zoom-slider" min="50" max="300" value="100" class="dev-slider" oninput="devUpdateCrop()">
-        <span class="dev-ctrl-val" id="dev-zoom-val">100%</span>
-      </div>
-      <div class="dev-ctrl-row">
-        <label class="dev-ctrl-lbl">🔄 Rotate</label>
-        <input type="range" id="dev-rotate-slider" min="-180" max="180" value="0" class="dev-slider" oninput="devUpdateCrop()">
-        <span class="dev-ctrl-val" id="dev-rotate-val">0°</span>
-      </div>
-    </div>
-    <div class="dev-crop-hint">Drag to reposition · Use sliders to zoom &amp; rotate</div>
-    <div class="dev-crop-footer">
-      <button class="dev-crop-cancel" onclick="devCloseCrop()">Cancel</button>
-      <button class="dev-crop-save" onclick="devSaveCrop()">✔ Apply &amp; Save</button>
-    </div>
-  </div>
-</div>
 
 <!-- ════════════════ PWA INSTALL POPUP ════════════════ -->
 <div id="pwa-install-popup" class="pwa-install-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title">
