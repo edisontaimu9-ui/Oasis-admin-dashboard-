@@ -212,6 +212,7 @@
       <div class="nav-sep"></div>
       <div class="nav-group-label">Content</div>
       <div class="nav-item"        id="nav-library"   onclick="switchTab('library')">   <span class="nav-icon">📚</span><span class="nav-label">Library</span>    <span class="nav-badge" id="nb-library">—</span></div>
+      <div class="nav-item"        id="nav-fooddb"    onclick="switchTab('fooddb')">    <span class="nav-icon">🍱</span><span class="nav-label">Food DB</span>    <span class="nav-badge" id="nb-fooddb">—</span></div>
       <div class="nav-sep"></div>
       <div class="nav-item"        id="nav-settings"  onclick="switchTab('settings')">  <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
       <div class="sidebar-footer">
@@ -810,6 +811,233 @@
           </div>
         </div>
       </div>
+
+      <!-- ══════ FOOD DATABASE ══════ -->
+      <div class="tab-pane" id="tab-fooddb">
+        <div class="content-header">
+          <div class="page-title">Packaged Food DB <span>Build · Verify · Publish</span></div>
+        </div>
+
+        <!-- KPI strip -->
+        <div class="kpi-grid" style="margin-bottom:18px">
+          <div class="kpi-card c-teal"   data-icon="🍱"><div class="kpi-label">Total Entries</div>  <div class="kpi-val" id="fdb-kpi-total">—</div><div class="kpi-sub">packaged_foods</div></div>
+          <div class="kpi-card c-green"  data-icon="✅"><div class="kpi-label">Verified</div>       <div class="kpi-val" id="fdb-kpi-verified">—</div><div class="kpi-sub">Admin-reviewed</div></div>
+          <div class="kpi-card c-amber"  data-icon="🔲"><div class="kpi-label">With Barcode</div>   <div class="kpi-val" id="fdb-kpi-barcode">—</div><div class="kpi-sub">EAN-13 indexed</div></div>
+          <div class="kpi-card c-blue"   data-icon="🌍"><div class="kpi-label">Countries</div>      <div class="kpi-val" id="fdb-kpi-countries">—</div><div class="kpi-sub">Origin coverage</div></div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="la-toolbar" style="margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <input class="la-search" id="fdb-search" type="text" placeholder="🔍 Search name or brand…"
+                 style="flex:2;min-width:180px" oninput="FoodDB.onSearch(this.value)">
+          <select class="la-select" id="fdb-cat-filter" onchange="FoodDB.setCatFilter(this.value)">
+            <option value="">All Categories</option>
+            <option>Staples</option><option>Legumes</option><option>Protein Foods</option>
+            <option>Vegetables</option><option>Fruits</option><option>Dairy</option>
+            <option>Fats &amp; Oils</option><option>Beverages</option><option>Condiments</option>
+            <option>Snacks</option><option>Infant Formula</option><option>ENF</option>
+            <option>Packaged</option>
+          </select>
+          <select class="la-select" id="fdb-country-filter" onchange="FoodDB.setCountryFilter(this.value)">
+            <option value="">All Countries</option>
+            <option value="MW">🇲🇼 Malawi</option>
+            <option value="ZA">🇿🇦 South Africa</option>
+            <option value="TZ">🇹🇿 Tanzania</option>
+            <option value="ZM">🇿🇲 Zambia</option>
+            <option value="KE">🇰🇪 Kenya</option>
+            <option value="MZ">🇲🇿 Mozambique</option>
+          </select>
+          <div class="chip-group" id="fdb-verified-filter" style="gap:4px">
+            <div class="chip active" data-val="all"    onclick="FoodDB.setVerifiedFilter(this,'all')">All</div>
+            <div class="chip"        data-val="true"   onclick="FoodDB.setVerifiedFilter(this,'true')">✅ Verified</div>
+            <div class="chip"        data-val="false"  onclick="FoodDB.setVerifiedFilter(this,'false')">⏳ Unverified</div>
+          </div>
+          <span class="la-count-label" id="fdb-count-label">—</span>
+          <button class="la-modal-btn la-btn-approve" onclick="FoodDB.openAddModal()" style="margin-left:auto;white-space:nowrap">➕ Add Entry</button>
+        </div>
+
+        <!-- Table -->
+        <div class="urm-table-wrap">
+          <table class="urm-table la-table">
+            <thead>
+              <tr>
+                <th>Name / Brand</th>
+                <th>Category</th>
+                <th>Barcode</th>
+                <th>kcal</th><th>Pro g</th><th>CHO g</th><th>Fat g</th>
+                <th>Country</th>
+                <th>Verified</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="fdb-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="la-pagination">
+          <button class="la-pg-btn" id="fdb-pg-prev" onclick="FoodDB.prevPage()">← Prev</button>
+          <span class="la-pg-info" id="fdb-pg-info">Page 1 / 1</span>
+          <button class="la-pg-btn" id="fdb-pg-next" onclick="FoodDB.nextPage()">Next →</button>
+        </div>
+
+        <!-- Quick-import strip: look up barcode via Open Food Facts -->
+        <div class="stg-card" style="margin-top:22px">
+          <div class="stg-card-hdr">🔲 Quick Import — Scan Barcode via Open Food Facts</div>
+          <div style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div style="flex:1;min-width:200px">
+              <label class="dev-label" style="margin-bottom:6px;display:block">EAN-13 / UPC Barcode</label>
+              <input class="dev-input" id="fdb-import-barcode" type="text" placeholder="e.g. 6009681152934" maxlength="14"
+                     onkeydown="if(event.key==='Enter')FoodDB.importByBarcode()">
+            </div>
+            <button class="la-modal-btn la-btn-approve" style="height:38px;padding:0 20px;white-space:nowrap"
+                    onclick="FoodDB.importByBarcode()">🔍 Lookup &amp; Pre-fill</button>
+          </div>
+          <div id="fdb-import-log" style="padding:0 14px 14px;font-family:var(--mono);font-size:11px;color:var(--text-dim);min-height:18px"></div>
+        </div>
+      </div><!-- /fooddb -->
+
+      <!-- MODAL: Add / Edit Food Entry -->
+      <div class="la-overlay" id="fdb-modal-overlay" style="display:none"
+           onclick="if(event.target===this)FoodDB.closeModal()">
+        <div class="la-modal la-modal-wide" style="max-width:680px">
+          <div class="la-modal-hdr">
+            <span id="fdb-modal-title">➕ Add Packaged Food</span>
+            <button class="urm-modal-close" onclick="FoodDB.closeModal()">✕</button>
+          </div>
+          <div class="la-modal-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <!-- Row 1 -->
+            <div class="dev-field" style="grid-column:1/3">
+              <label class="dev-label">Product Name <span style="color:var(--red)">*</span></label>
+              <input class="dev-input" id="fdb-f-name" type="text" maxlength="120" placeholder="e.g. Topsoy Soya Pieces">
+            </div>
+            <!-- Row 2 -->
+            <div class="dev-field">
+              <label class="dev-label">Brand</label>
+              <input class="dev-input" id="fdb-f-brand" type="text" maxlength="80" placeholder="e.g. Topsoy">
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Barcode (EAN-13)</label>
+              <input class="dev-input" id="fdb-f-barcode" type="text" maxlength="14" placeholder="digits only">
+            </div>
+            <!-- Row 3 -->
+            <div class="dev-field">
+              <label class="dev-label">Category</label>
+              <select class="dev-input" id="fdb-f-category">
+                <option>Protein Foods</option><option>Staples</option><option>Legumes</option>
+                <option>Vegetables</option><option>Fruits</option><option>Dairy</option>
+                <option>Fats &amp; Oils</option><option>Beverages</option><option>Condiments</option>
+                <option>Snacks</option><option>Infant Formula</option><option>ENF</option>
+                <option>Packaged</option>
+              </select>
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Country</label>
+              <select class="dev-input" id="fdb-f-country">
+                <option value="MW">🇲🇼 Malawi</option>
+                <option value="ZA">🇿🇦 South Africa</option>
+                <option value="TZ">🇹🇿 Tanzania</option>
+                <option value="ZM">🇿🇲 Zambia</option>
+                <option value="KE">🇰🇪 Kenya</option>
+                <option value="MZ">🇲🇿 Mozambique</option>
+                <option value="ZW">🇿🇼 Zimbabwe</option>
+              </select>
+            </div>
+            <!-- Nutrition header -->
+            <div style="grid-column:1/3;margin:4px 0 0;font-family:var(--mono);font-size:10px;
+                        font-weight:700;letter-spacing:1.2px;color:var(--teal);text-transform:uppercase">
+              Nutrition — per 100 g
+            </div>
+            <!-- Macro fields -->
+            <div class="dev-field">
+              <label class="dev-label">Energy (kcal) <span style="color:var(--red)">*</span></label>
+              <input class="dev-input" id="fdb-f-kcal" type="number" min="0" step="0.1" placeholder="e.g. 350">
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Energy (kJ)</label>
+              <input class="dev-input" id="fdb-f-kj" type="number" min="0" step="1" placeholder="auto-calc if blank">
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Protein (g) <span style="color:var(--red)">*</span></label>
+              <input class="dev-input" id="fdb-f-pro" type="number" min="0" step="0.1" placeholder="g per 100g">
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Carbohydrate (g) <span style="color:var(--red)">*</span></label>
+              <input class="dev-input" id="fdb-f-cho" type="number" min="0" step="0.1" placeholder="g per 100g">
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Total Fat (g) <span style="color:var(--red)">*</span></label>
+              <input class="dev-input" id="fdb-f-fat" type="number" min="0" step="0.1" placeholder="g per 100g">
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Dietary Fibre (g)</label>
+              <input class="dev-input" id="fdb-f-fiber" type="number" min="0" step="0.1" placeholder="optional">
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Sugar (g)</label>
+              <input class="dev-input" id="fdb-f-sugar" type="number" min="0" step="0.1" placeholder="optional">
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Sodium (g)</label>
+              <input class="dev-input" id="fdb-f-sodium" type="number" min="0" step="0.001" placeholder="optional">
+            </div>
+            <!-- Serving -->
+            <div style="grid-column:1/3;margin:4px 0 0;font-family:var(--mono);font-size:10px;
+                        font-weight:700;letter-spacing:1.2px;color:var(--amber);text-transform:uppercase">
+              Serving Size (optional)
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Serving Weight (g)</label>
+              <input class="dev-input" id="fdb-f-serving-size" type="number" min="0" step="0.5" placeholder="e.g. 50">
+            </div>
+            <div class="dev-field">
+              <label class="dev-label">Serving Label</label>
+              <input class="dev-input" id="fdb-f-serving-label" type="text" maxlength="60" placeholder="e.g. 1 pack (50g)">
+            </div>
+            <!-- Image + Verified -->
+            <div class="dev-field" style="grid-column:1/3">
+              <label class="dev-label">Product Image URL</label>
+              <input class="dev-input" id="fdb-f-image" type="url" placeholder="https://… (optional)">
+            </div>
+            <div style="grid-column:1/3;display:flex;align-items:center;gap:10px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text)">
+                <input type="checkbox" id="fdb-f-verified" style="accent-color:var(--green);width:16px;height:16px">
+                <span>Mark as Verified <small style="color:var(--text-dim)">(admin-reviewed nutrition data)</small></span>
+              </label>
+            </div>
+          </div>
+          <div id="fdb-modal-err" style="padding:8px 18px 0;font-size:11px;color:var(--red);font-family:var(--mono)"></div>
+          <div class="la-modal-footer">
+            <button class="la-modal-btn la-modal-cancel" onclick="FoodDB.closeModal()">Cancel</button>
+            <button class="la-modal-btn la-btn-approve" id="fdb-save-btn" onclick="FoodDB.saveEntry()">💾 Save Entry</button>
+          </div>
+        </div>
+      </div><!-- /fdb-modal -->
+
+      <!-- MODAL: Confirm Delete -->
+      <div class="la-overlay" id="fdb-del-overlay" style="display:none"
+           onclick="if(event.target===this)FoodDB.closeDelModal()">
+        <div class="la-modal" style="max-width:400px">
+          <div class="la-modal-hdr">
+            <span>🗑 Delete Entry</span>
+            <button class="urm-modal-close" onclick="FoodDB.closeDelModal()">✕</button>
+          </div>
+          <div class="la-modal-body">
+            <p style="color:var(--text);font-size:13px;margin:0 0 8px">
+              Permanently delete <strong id="fdb-del-name" style="color:var(--red)">—</strong>?
+            </p>
+            <p style="color:var(--text-dim);font-size:12px;margin:0">
+              This will remove the entry from <code style="color:var(--amber)">packaged_foods</code> and
+              cannot be undone. Any Oasis search caches referencing this entry will clear on next search.
+            </p>
+          </div>
+          <div class="la-modal-footer">
+            <button class="la-modal-btn la-modal-cancel" onclick="FoodDB.closeDelModal()">Cancel</button>
+            <button class="la-modal-btn" style="background:rgba(251,113,133,0.15);border-color:rgba(251,113,133,0.5);color:var(--red)"
+                    onclick="FoodDB.confirmDelete()">🗑 Delete</button>
+          </div>
+        </div>
+      </div><!-- /fdb-del-modal -->
 
       <!-- ══════ OFFLINE USAGE ══════ -->
       <div class="tab-pane" id="tab-offline">
