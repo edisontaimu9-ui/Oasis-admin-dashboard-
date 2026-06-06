@@ -816,86 +816,124 @@
       <!-- ══════ FOOD DATABASE ══════ -->
       <div class="tab-pane" id="tab-fooddb">
         <div class="content-header">
-          <div class="page-title">Packaged Food DB <span>Build · Verify · Publish</span></div>
+          <div class="page-title">Packaged Food DB <span>Submissions · Verify · Publish</span></div>
         </div>
 
         <!-- KPI strip -->
         <div class="kpi-grid" style="margin-bottom:18px">
           <div class="kpi-card c-teal"   data-icon="🍱"><div class="kpi-label">Total Entries</div>  <div class="kpi-val" id="fdb-kpi-total">—</div><div class="kpi-sub">packaged_foods</div></div>
-          <div class="kpi-card c-green"  data-icon="✅"><div class="kpi-label">Verified</div>       <div class="kpi-val" id="fdb-kpi-verified">—</div><div class="kpi-sub">Admin-reviewed</div></div>
-          <div class="kpi-card c-amber"  data-icon="🔲"><div class="kpi-label">With Barcode</div>   <div class="kpi-val" id="fdb-kpi-barcode">—</div><div class="kpi-sub">EAN-13 indexed</div></div>
+          <div class="kpi-card c-amber"  data-icon="⏳"><div class="kpi-label">Pending</div>        <div class="kpi-val" id="fdb-kpi-pending">—</div><div class="kpi-sub">Awaiting review</div></div>
+          <div class="kpi-card c-green"  data-icon="✅"><div class="kpi-label">Verified</div>       <div class="kpi-val" id="fdb-kpi-verified">—</div><div class="kpi-sub">Live in app</div></div>
           <div class="kpi-card c-blue"   data-icon="🌍"><div class="kpi-label">Countries</div>      <div class="kpi-val" id="fdb-kpi-countries">—</div><div class="kpi-sub">Origin coverage</div></div>
         </div>
 
-        <!-- Toolbar -->
-        <div class="la-toolbar" style="margin-bottom:14px;flex-wrap:wrap;gap:8px">
-          <input class="la-search" id="fdb-search" type="text" placeholder="🔍 Search name or brand…"
-                 style="flex:2;min-width:180px" oninput="FoodDB.onSearch(this.value)">
-          <select class="la-select" id="fdb-cat-filter" onchange="FoodDB.setCatFilter(this.value)">
-            <option value="">All Categories</option>
-            <option>Staples</option><option>Legumes</option><option>Protein Foods</option>
-            <option>Vegetables</option><option>Fruits</option><option>Dairy</option>
-            <option>Fats &amp; Oils</option><option>Beverages</option><option>Condiments</option>
-            <option>Snacks</option><option>Infant Formula</option><option>ENF</option>
-            <option>Packaged</option>
-          </select>
-          <select class="la-select" id="fdb-country-filter" onchange="FoodDB.setCountryFilter(this.value)">
-            <option value="">All Countries</option>
-            <option value="MW">🇲🇼 Malawi</option>
-            <option value="ZA">🇿🇦 South Africa</option>
-            <option value="TZ">🇹🇿 Tanzania</option>
-            <option value="ZM">🇿🇲 Zambia</option>
-            <option value="KE">🇰🇪 Kenya</option>
-            <option value="MZ">🇲🇿 Mozambique</option>
-          </select>
-          <div class="chip-group" id="fdb-verified-filter" style="gap:4px">
-            <div class="chip active" data-val="all"    onclick="FoodDB.setVerifiedFilter(this,'all')">All</div>
-            <div class="chip"        data-val="true"   onclick="FoodDB.setVerifiedFilter(this,'true')">✅ Verified</div>
-            <div class="chip"        data-val="false"  onclick="FoodDB.setVerifiedFilter(this,'false')">⏳ Unverified</div>
+        <!-- Sub-nav -->
+        <div class="la-subnav">
+          <button class="la-sntab active" data-panel="submissions" onclick="FoodDB.switchPanel('submissions')">⏳ Submissions <span class="nav-badge" id="fdb-sub-badge" style="position:relative;top:0;margin-left:4px">—</span></button>
+          <button class="la-sntab"        data-panel="database"    onclick="FoodDB.switchPanel('database')">🍱 Database</button>
+          <button class="la-sntab"        data-panel="import"      onclick="FoodDB.switchPanel('import')">🔲 Quick Import</button>
+        </div>
+
+        <!-- ── SUBMISSIONS PANEL ── -->
+        <div class="la-panel active" id="fdb-panel-submissions">
+          <div class="la-toolbar" style="margin-bottom:14px;flex-wrap:wrap;gap:8px">
+            <input class="la-search" id="fdb-sub-search" type="text" placeholder="🔍 Search name, brand, or submitter…"
+                   style="flex:2;min-width:180px" oninput="FoodDB.onSubSearch(this.value)">
+            <span class="la-count-label" id="fdb-sub-count-label">—</span>
           </div>
-          <span class="la-count-label" id="fdb-count-label">—</span>
-          <button class="la-modal-btn la-btn-approve" onclick="FoodDB.openAddModal()" style="margin-left:auto;white-space:nowrap">➕ Add Entry</button>
+          <div class="urm-table-wrap">
+            <table class="urm-table la-table">
+              <thead>
+                <tr>
+                  <th>Name / Brand</th>
+                  <th>Submitted by</th>
+                  <th>Category</th>
+                  <th>Barcode</th>
+                  <th>kcal</th><th>Pro g</th><th>CHO g</th><th>Fat g</th>
+                  <th>Country</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="fdb-sub-tbody"></tbody>
+            </table>
+          </div>
+          <div class="la-pagination">
+            <button class="la-pg-btn" id="fdb-sub-pg-prev" onclick="FoodDB.subPrevPage()">← Prev</button>
+            <span class="la-pg-info" id="fdb-sub-pg-info">Page 1 / 1</span>
+            <button class="la-pg-btn" id="fdb-sub-pg-next" onclick="FoodDB.subNextPage()">Next →</button>
+          </div>
         </div>
 
-        <!-- Table -->
-        <div class="urm-table-wrap">
-          <table class="urm-table la-table">
-            <thead>
-              <tr>
-                <th>Name / Brand</th>
-                <th>Category</th>
-                <th>Barcode</th>
-                <th>kcal</th><th>Pro g</th><th>CHO g</th><th>Fat g</th>
-                <th>Country</th>
-                <th>Verified</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="fdb-tbody"></tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        <div class="la-pagination">
-          <button class="la-pg-btn" id="fdb-pg-prev" onclick="FoodDB.prevPage()">← Prev</button>
-          <span class="la-pg-info" id="fdb-pg-info">Page 1 / 1</span>
-          <button class="la-pg-btn" id="fdb-pg-next" onclick="FoodDB.nextPage()">Next →</button>
-        </div>
-
-        <!-- Quick-import strip: look up barcode via Open Food Facts -->
-        <div class="stg-card" style="margin-top:22px">
-          <div class="stg-card-hdr">🔲 Quick Import — Scan Barcode via Open Food Facts</div>
-          <div style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-            <div style="flex:1;min-width:200px">
-              <label class="dev-label" style="margin-bottom:6px;display:block">EAN-13 / UPC Barcode</label>
-              <input class="dev-input" id="fdb-import-barcode" type="text" placeholder="e.g. 6009681152934" maxlength="14"
-                     onkeydown="if(event.key==='Enter')FoodDB.importByBarcode()">
+        <!-- ── DATABASE PANEL ── -->
+        <div class="la-panel" id="fdb-panel-database">
+          <div class="la-toolbar" style="margin-bottom:14px;flex-wrap:wrap;gap:8px">
+            <input class="la-search" id="fdb-search" type="text" placeholder="🔍 Search name or brand…"
+                   style="flex:2;min-width:180px" oninput="FoodDB.onSearch(this.value)">
+            <select class="la-select" id="fdb-cat-filter" onchange="FoodDB.setCatFilter(this.value)">
+              <option value="">All Categories</option>
+              <option>Staples</option><option>Legumes</option><option>Protein Foods</option>
+              <option>Vegetables</option><option>Fruits</option><option>Dairy</option>
+              <option>Fats &amp; Oils</option><option>Beverages</option><option>Condiments</option>
+              <option>Snacks</option><option>Infant Formula</option><option>ENF</option>
+              <option>Packaged</option>
+            </select>
+            <select class="la-select" id="fdb-country-filter" onchange="FoodDB.setCountryFilter(this.value)">
+              <option value="">All Countries</option>
+              <option value="MW">🇲🇼 Malawi</option>
+              <option value="ZA">🇿🇦 South Africa</option>
+              <option value="TZ">🇹🇿 Tanzania</option>
+              <option value="ZM">🇿🇲 Zambia</option>
+              <option value="KE">🇰🇪 Kenya</option>
+              <option value="MZ">🇲🇿 Mozambique</option>
+            </select>
+            <div class="chip-group" id="fdb-verified-filter" style="gap:4px">
+              <div class="chip active" data-val="all"    onclick="FoodDB.setVerifiedFilter(this,'all')">All</div>
+              <div class="chip"        data-val="true"   onclick="FoodDB.setVerifiedFilter(this,'true')">✅ Verified</div>
+              <div class="chip"        data-val="false"  onclick="FoodDB.setVerifiedFilter(this,'false')">⏳ Pending</div>
             </div>
-            <button class="la-modal-btn la-btn-approve" style="height:38px;padding:0 20px;white-space:nowrap"
-                    onclick="FoodDB.importByBarcode()">🔍 Lookup &amp; Pre-fill</button>
+            <span class="la-count-label" id="fdb-count-label">—</span>
+            <button class="la-modal-btn la-btn-approve" onclick="FoodDB.openAddModal()" style="margin-left:auto;white-space:nowrap">➕ Add Entry</button>
           </div>
-          <div id="fdb-import-log" style="padding:0 14px 14px;font-family:var(--mono);font-size:11px;color:var(--text-dim);min-height:18px"></div>
+          <div class="urm-table-wrap">
+            <table class="urm-table la-table">
+              <thead>
+                <tr>
+                  <th>Name / Brand</th>
+                  <th>Category</th>
+                  <th>Barcode</th>
+                  <th>kcal</th><th>Pro g</th><th>CHO g</th><th>Fat g</th>
+                  <th>Country</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="fdb-tbody"></tbody>
+            </table>
+          </div>
+          <div class="la-pagination">
+            <button class="la-pg-btn" id="fdb-pg-prev" onclick="FoodDB.prevPage()">← Prev</button>
+            <span class="la-pg-info" id="fdb-pg-info">Page 1 / 1</span>
+            <button class="la-pg-btn" id="fdb-pg-next" onclick="FoodDB.nextPage()">Next →</button>
+          </div>
         </div>
+
+        <!-- ── QUICK IMPORT PANEL ── -->
+        <div class="la-panel" id="fdb-panel-import">
+          <div class="stg-card" style="margin-top:8px">
+            <div class="stg-card-hdr">🔲 Quick Import — Scan Barcode via Open Food Facts</div>
+            <div style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+              <div style="flex:1;min-width:200px">
+                <label class="dev-label" style="margin-bottom:6px;display:block">EAN-13 / UPC Barcode</label>
+                <input class="dev-input" id="fdb-import-barcode" type="text" placeholder="e.g. 6009681152934" maxlength="14"
+                       onkeydown="if(event.key==='Enter')FoodDB.importByBarcode()">
+              </div>
+              <button class="la-modal-btn la-btn-approve" style="height:38px;padding:0 20px;white-space:nowrap"
+                      onclick="FoodDB.importByBarcode()">🔍 Lookup &amp; Pre-fill</button>
+            </div>
+            <div id="fdb-import-log" style="padding:0 14px 14px;font-family:var(--mono);font-size:11px;color:var(--text-dim);min-height:18px"></div>
+          </div>
+        </div>
+
       </div><!-- /fooddb -->
 
       <!-- MODAL: Add / Edit Food Entry -->

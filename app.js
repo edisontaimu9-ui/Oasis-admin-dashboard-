@@ -2712,7 +2712,7 @@ function renderOfflineTab() {
      name, nameLower, brand, barcode, category, country,
      per100g: { kcal, kj, pro, cho, fat, fiber, sugar, sodium },
      servingSize, servingLabel, image, verified,
-     addedBy, addedAt, updatedAt
+     submittedBy, addedBy, addedAt, updatedAt
 
    All reads / writes go directly through the shared `db` instance.
 ═══════════════════════════════════════════════════════════ */
@@ -2732,27 +2732,134 @@ const FoodDB = (function () {
   let _delDocId      = null;
   let _delDocName    = '';
 
+  // Submissions panel state
+  let _subDocs      = [];
+  let _subFiltered  = [];
+  let _subPage      = 0;
+  let _subSearch    = '';
+
+  /* ── Panel switching ── */
+  function switchPanel(name) {
+    document.querySelectorAll('.la-sntab').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
+    document.querySelectorAll('#tab-fooddb .la-panel').forEach(p => {
+      p.classList.toggle('active', p.id === 'fdb-panel-' + name);
+    });
+    if (name === 'submissions') _renderSub();
+    if (name === 'database')    _render();
+  }
+
   /* ── Init — called when tab opens ── */
   function init() {
-    _page = 0;
+    _page    = 0;
+    _subPage = 0;
     _applyFilters();
-    _render();
+    _applySubFilters();
+    // Default to submissions panel so pending items are front-and-center
+    switchPanel('submissions');
   }
 
   /* ── KPI strip ── */
   function _updateKPIs() {
-    const total     = _allDocs.length;
-    const verified  = _allDocs.filter(d => d.verified).length;
-    const withBC    = _allDocs.filter(d => d.barcode).length;
+    const total    = _allDocs.length;
+    const pending  = _allDocs.filter(d => !d.verified).length;
+    const verified = _allDocs.filter(d => d.verified).length;
     const countries = new Set(_allDocs.map(d => d.country).filter(Boolean)).size;
     _set('fdb-kpi-total',     total);
+    _set('fdb-kpi-pending',   pending);
     _set('fdb-kpi-verified',  verified);
-    _set('fdb-kpi-barcode',   withBC);
     _set('fdb-kpi-countries', countries);
-    _set('nb-fooddb',         total || '');
+    // Nav badge shows pending count (the actionable number)
+    _set('nb-fooddb', pending || '');
+    _set('fdb-sub-badge', pending || '');
   }
 
-  /* ── Filter + sort ── */
+  /* ── Submissions list ── */
+  function _applySubFilters() {
+    const q = _subSearch.toLowerCase();
+    _subDocs     = _allDocs.filter(d => !d.verified);
+    _subFiltered = _subDocs.filter(d => {
+      if (!q) return true;
+      return (d.name       || '').toLowerCase().includes(q) ||
+             (d.brand      || '').toLowerCase().includes(q) ||
+             (d.submittedBy|| '').toLowerCase().includes(q) ||
+             (d.barcode    || '').includes(q);
+    });
+    const count = _subFiltered.length;
+    _set('fdb-sub-count-label', count + ' submission' + (count !== 1 ? 's' : ''));
+  }
+
+  function _renderSub() {
+    const tbody = document.getElementById('fdb-sub-tbody');
+    if (!tbody) return;
+    _applySubFilters();
+
+    const totalPages = Math.max(1, Math.ceil(_subFiltered.length / PAGE_SIZE));
+    if (_subPage >= totalPages) _subPage = totalPages - 1;
+    const slice = _subFiltered.slice(_subPage * PAGE_SIZE, (_subPage + 1) * PAGE_SIZE);
+
+    _set('fdb-sub-pg-info', 'Page ' + (_subPage + 1) + ' / ' + totalPages);
+    const prev = document.getElementById('fdb-sub-pg-prev');
+    const next = document.getElementById('fdb-sub-pg-next');
+    if (prev) prev.disabled = _subPage === 0;
+    if (next) next.disabled = _subPage >= totalPages - 1;
+
+    if (!slice.length) {
+      tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">✅</div>No pending submissions — all caught up!</div></td></tr>';
+      return;
+    }
+
+    const macroFmt = v => (v != null && v !== '') ? (+v).toFixed(1) : '—';
+    const FLAG = { MW:'🇲🇼', ZA:'🇿🇦', TZ:'🇹🇿', ZM:'🇿🇲', KE:'🇰🇪', MZ:'🇲🇿', ZW:'🇿🇼' };
+
+    tbody.innerHTML = slice.map(d => {
+      const n    = d.per100g || {};
+      const flag = FLAG[d.country] || d.country || '—';
+      const by   = d.submittedBy ? '<span style="font-size:10px;color:var(--text-dim)">' + _esc(d.submittedBy) + '</span>' : '<span style="color:var(--text-muted);font-size:10px">—</span>';
+      const bcDisplay = d.barcode
+        ? '<span style="font-family:var(--mono);font-size:10px;color:var(--amber)">' + _esc(d.barcode) + '</span>'
+        : '<span style="color:var(--text-muted);font-size:10px">—</span>';
+      return '<tr>' +
+        '<td style="min-width:140px"><strong style="color:var(--text)">' + _esc(d.name || '—') + '</strong>' +
+          (d.brand ? '<br><span style="font-size:10px;color:var(--text-dim)">' + _esc(d.brand) + '</span>' : '') + '</td>' +
+        '<td>' + by + '</td>' +
+        '<td><span class="badge badge-dim" style="font-size:9px">' + _esc(d.category || '—') + '</span></td>' +
+        '<td>' + bcDisplay + '</td>' +
+        '<td style="color:var(--amber);font-weight:600">' + macroFmt(n.kcal) + '</td>' +
+        '<td style="color:var(--blue)">'   + macroFmt(n.pro)  + '</td>' +
+        '<td style="color:var(--teal)">'   + macroFmt(n.cho)  + '</td>' +
+        '<td style="color:var(--green)">'  + macroFmt(n.fat)  + '</td>' +
+        '<td>' + flag + '</td>' +
+        '<td style="white-space:nowrap">' +
+          '<button class="la-modal-btn la-btn-approve" style="font-size:10px;padding:4px 10px;margin-right:4px" ' +
+            'onclick="FoodDB.verifyEntry(\'' + d.id + '\')">✅ Verify</button>' +
+          '<button class="urm-edit-btn" style="margin-right:4px" onclick="FoodDB.openEditModal(\'' + d.id + '\')">✏ Edit</button>' +
+          '<button class="urm-edit-btn" style="color:var(--red);border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.06)" ' +
+            'onclick="FoodDB.openDelModal(\'' + d.id + '\',\'' + _esc((d.name||'').replace(/'/g,"&#39;")) + '\')">🗑</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function onSubSearch(v) { _subSearch = v; _subPage = 0; _renderSub(); }
+  function subNextPage()  { _subPage++; _renderSub(); }
+  function subPrevPage()  { if (_subPage > 0) { _subPage--; _renderSub(); } }
+
+  /* ── Verify a submission ── */
+  async function verifyEntry(docId) {
+    if (!db) return;
+    try {
+      await db.collection('packaged_foods').doc(docId).set({
+        verified:  true,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      const d = _allDocs.find(x => x.id === docId);
+      showToast('✅ Verified: ' + (d?.name || docId), 'success');
+    } catch (e) {
+      showToast('Verify failed: ' + e.message, 'error');
+    }
+  }
+
+  /* ── Filter + sort (database panel) ── */
   function _applyFilters() {
     const q = _search.toLowerCase();
     _filteredDocs = _allDocs.filter(d => {
@@ -2772,7 +2879,7 @@ const FoodDB = (function () {
     _set('fdb-count-label', _filteredDocs.length + ' entr' + (_filteredDocs.length !== 1 ? 'ies' : 'y'));
   }
 
-  /* ── Table render ── */
+  /* ── Table render (database panel) ── */
   function _render() {
     const tbody = document.getElementById('fdb-tbody');
     if (!tbody) return;
@@ -2801,7 +2908,7 @@ const FoodDB = (function () {
       const flag = FLAG[d.country] || d.country || '—';
       const verBadge = d.verified
         ? '<span class="badge badge-green" style="font-size:9px">✅ Verified</span>'
-        : '<span class="badge badge-dim"   style="font-size:9px">⏳ Draft</span>';
+        : '<span class="badge badge-dim"   style="font-size:9px">⏳ Pending</span>';
       const bcDisplay = d.barcode
         ? '<span style="font-family:var(--mono);font-size:10px;color:var(--amber)">' + _esc(d.barcode) + '</span>'
         : '<span style="color:var(--text-muted);font-size:10px">—</span>';
@@ -2817,6 +2924,10 @@ const FoodDB = (function () {
         '<td>' + flag + '</td>' +
         '<td>' + verBadge + '</td>' +
         '<td style="white-space:nowrap">' +
+          (!d.verified
+            ? '<button class="la-modal-btn la-btn-approve" style="font-size:10px;padding:4px 10px;margin-right:4px" ' +
+              'onclick="FoodDB.verifyEntry(\'' + d.id + '\')">✅ Verify</button>'
+            : '') +
           '<button class="urm-edit-btn" style="margin-right:4px" onclick="FoodDB.openEditModal(\'' + d.id + '\')">✏ Edit</button>' +
           '<button class="urm-edit-btn" style="color:var(--red);border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.06)" ' +
             'onclick="FoodDB.openDelModal(\'' + d.id + '\',\'' + _esc((d.name||'').replace(/'/g,"&#39;")) + '\')">🗑</button>' +
@@ -3108,12 +3219,14 @@ const FoodDB = (function () {
     get _allDocs() { return _allDocs; },
     set _allDocs(v) { _allDocs = v; },
     init,
+    switchPanel,
     _updateKPIs,
     onSearch, setCatFilter, setCountryFilter, setVerifiedFilter,
     nextPage, prevPage,
+    onSubSearch, subNextPage, subPrevPage,
     openAddModal, openEditModal, closeModal,
     openDelModal, closeDelModal,
-    saveEntry, confirmDelete,
+    saveEntry, confirmDelete, verifyEntry,
     importByBarcode,
   };
 })();
