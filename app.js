@@ -1098,6 +1098,52 @@ async function deleteAllSessions() {
   showToast(`Deleted ${ok} session(s)${fail ? ` · ${fail} failed` : ''}.`, fail ? 'error' : 'success');
 }
 
+/* ═══════════════════════════════════════════════════════════
+   ADMIN REPLY
+═══════════════════════════════════════════════════════════ */
+
+/**
+ * Writes or updates an admin reply on a feedback document.
+ * Sets replyRead:false so the user's inbox shows the NEW badge.
+ */
+async function sendAdminReply(docId, replyText) {
+  if (!replyText.trim()) {
+    showToast('Reply cannot be empty.', 'error');
+    return;
+  }
+  const adminName = firebase.auth().currentUser?.displayName || 'Admin';
+  try {
+    await db.collection('feedback').doc(docId).update({
+      adminReply: {
+        message:   replyText.trim(),
+        repliedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        adminName: adminName
+      },
+      replyRead: false
+    });
+    showToast('Reply sent ✓', 'success');
+    // onSnapshot will auto-refresh _renderFeedback()
+  } catch(e) {
+    console.error('[Admin] sendAdminReply:', e);
+    showToast('Failed to send reply.', 'error');
+  }
+}
+
+/**
+ * Toggles visibility of a feedback card's reply panel.
+ * Auto-focuses the textarea on open.
+ */
+function toggleReplyPanel(docId) {
+  const panel = document.getElementById('reply-panel-' + docId);
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none';
+  panel.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) {
+    const ta = document.getElementById('reply-ta-' + docId);
+    if (ta) ta.focus();
+  }
+}
+
 async function deleteFeedback(docId) {
   if (!docId) return;
   try {
@@ -1166,15 +1212,33 @@ function _renderFeedback() {
     const devDisplay = devLabel !== 'Unknown'
       ? `${_deviceIcon(f.deviceInfo)} ${devLabel}`
       : `<span style="color:var(--text-muted);font-size:9px">Device unknown</span>`;
-    return `<div class="fb-card" id="fb-card-${f.id}" style="position:relative">
+
+    // ── A) Replied badge + C) Unread indicator ──
+    const repliedBadge = f.adminReply
+      ? `<span class="badge badge-green" style="font-size:8px;padding:1px 6px;margin-left:2px">✓ REPLIED</span>` +
+        (f.replyRead === false
+          ? `<span class="badge badge-amber" style="font-size:8px;padding:1px 6px;margin-left:2px">● Unread</span>`
+          : '')
+      : '';
+
+    // ── B) Admin reply preview (≤100 chars, teal left-border) ──
+    const replyPreview = f.adminReply
+      ? `<div style="border-left:3px solid var(--teal);padding-left:10px;font-size:11px;color:var(--text-muted);margin-top:6px;font-style:italic;line-height:1.5">↩ Admin (${_esc(f.adminReply.adminName || 'Admin')}): ${_esc((f.adminReply.message||'').slice(0,100))}${(f.adminReply.message||'').length > 100 ? '…' : ''}</div>`
+      : '';
+
+    // ── E) Reply button label ──
+    const replyBtnLabel = f.adminReply ? '✏ EDIT REPLY' : '💬 REPLY';
+
+    return `<div class="fb-card" id="fb-card-${f.id}" style="position:relative;flex-wrap:wrap">
       <div class="fb-emoji">${f.emoji || '💬'}</div>
-      <div class="fb-body">
-        <div class="fb-sender" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <div class="fb-body" style="padding-right:150px">
+        <div class="fb-sender" style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">
           <span style="font-size:12px;font-weight:700;color:var(--text)">${_esc(senderName)}</span>
-          ${senderRole}${typeLabel}
+          ${senderRole}${typeLabel}${repliedBadge}
         </div>
         ${subjectLine}
         <div class="fb-msg">${_esc(f.message || '(no message)')}</div>
+        ${replyPreview}
         <div class="fb-meta">
           ${senderUid}
           <span class="fb-meta-item">📋 ${(f.sessionId||'—').slice(0,14)}</span>
@@ -1182,7 +1246,35 @@ function _renderFeedback() {
           <span class="fb-meta-item">🕐 ${_fmtTs(f.sentAt)}</span>
         </div>
       </div>
-      <button onclick="deleteFeedback('${f.id}')" title="Delete this feedback" style="position:absolute;top:8px;right:8px;background:rgba(251,113,133,0.08);border:1px solid rgba(251,113,133,0.25);border-radius:6px;cursor:pointer;font-size:11px;color:var(--red);opacity:.7;padding:3px 8px;line-height:1;font-family:var(--mono);letter-spacing:.5px" onmouseover="this.style.opacity=1;this.style.background='rgba(251,113,133,0.18)'" onmouseout="this.style.opacity=.7;this.style.background='rgba(251,113,133,0.08)'">🗑 DEL</button>
+      <div style="position:absolute;top:8px;right:8px;display:flex;gap:6px;align-items:center">
+        <button onclick="toggleReplyPanel('${f.id}')"
+          title="${f.adminReply ? 'Edit reply' : 'Reply to this feedback'}"
+          style="background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.28);border-radius:6px;cursor:pointer;font-size:11px;color:var(--blue);opacity:.85;padding:3px 8px;line-height:1;font-family:var(--mono);letter-spacing:.5px"
+          onmouseover="this.style.opacity=1;this.style.background='rgba(96,165,250,0.18)'"
+          onmouseout="this.style.opacity=.85;this.style.background='rgba(96,165,250,0.08)'">${replyBtnLabel}</button>
+        <button onclick="deleteFeedback('${f.id}')"
+          title="Delete this feedback"
+          style="background:rgba(251,113,133,0.08);border:1px solid rgba(251,113,133,0.25);border-radius:6px;cursor:pointer;font-size:11px;color:var(--red);opacity:.7;padding:3px 8px;line-height:1;font-family:var(--mono);letter-spacing:.5px"
+          onmouseover="this.style.opacity=1;this.style.background='rgba(251,113,133,0.18)'"
+          onmouseout="this.style.opacity=.7;this.style.background='rgba(251,113,133,0.08)'">🗑 DEL</button>
+      </div>
+      <div id="reply-panel-${f.id}" style="display:none;width:100%;flex-basis:100%;margin-top:10px;padding:12px 14px;background:var(--surface2);border:1px solid rgba(96,165,250,0.2);border-radius:8px;box-sizing:border-box">
+        <textarea id="reply-ta-${f.id}" maxlength="1000" rows="3"
+          placeholder="Type your reply to this user…"
+          style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:9px 12px;outline:none;resize:vertical;line-height:1.5;transition:border-color .2s"
+          onfocus="this.style.borderColor='rgba(29,233,212,0.4)'"
+          onblur="this.style.borderColor='var(--border2)'">${_esc(f.adminReply?.message || '')}</textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+          <button onclick="toggleReplyPanel('${f.id}')"
+            style="background:transparent;border:1px solid var(--border2);border-radius:6px;cursor:pointer;font-size:10px;color:var(--text-muted);padding:5px 12px;font-family:var(--mono);letter-spacing:.5px;transition:border-color .2s,color .2s"
+            onmouseover="this.style.borderColor='var(--border)';this.style.color='var(--text)'"
+            onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text-muted)'">CANCEL</button>
+          <button onclick="sendAdminReply('${f.id}', document.getElementById('reply-ta-${f.id}').value)"
+            style="background:rgba(29,233,212,0.1);border:1px solid rgba(29,233,212,0.35);border-radius:6px;cursor:pointer;font-size:10px;color:var(--teal);padding:5px 12px;font-family:var(--mono);letter-spacing:.5px;transition:background .2s,border-color .2s"
+            onmouseover="this.style.background='rgba(29,233,212,0.2)';this.style.borderColor='rgba(29,233,212,0.6)'"
+            onmouseout="this.style.background='rgba(29,233,212,0.1)';this.style.borderColor='rgba(29,233,212,0.35)'">SEND REPLY</button>
+        </div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1334,11 +1426,13 @@ function exportSessionsCSV() {
 }
 
 function exportFeedbackCSV() {
-  const headers = ['Emoji','Message','Sender Name','User Role','User ID','Session ID','Device','Timestamp'];
+  const headers = ['Emoji','Message','Sender Name','User Role','User ID','Session ID','Device','Timestamp','Reply','Replied At'];
   const rows = allFeedback.map(f => [
     f.emoji || '', (f.message || '').replace(/,/g,' '),
     f.userName || '—', f.userRole || '—', f.userId || '—',
-    f.sessionId || '', _deviceLabel(f.deviceInfo), _fmtTs(f.sentAt)
+    f.sessionId || '', _deviceLabel(f.deviceInfo), _fmtTs(f.sentAt),
+    f.adminReply?.message || '',
+    f.adminReply?.repliedAt ? _fmtTs(f.adminReply.repliedAt) : ''
   ]);
   _downloadCSV('nutritrack_feedback_' + TODAY + '.csv', headers, rows);
   showToast('Feedback CSV exported ✓', 'success');
