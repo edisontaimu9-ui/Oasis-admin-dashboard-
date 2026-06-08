@@ -743,6 +743,7 @@
         uploadedBy,
         uploaderName,
         status:        'approved',  // admin uploads publish immediately
+        createdAt:     new Date().toISOString(),
         reviewNote:    '',
         bookmarkCount: 0,
         viewCount:     0,
