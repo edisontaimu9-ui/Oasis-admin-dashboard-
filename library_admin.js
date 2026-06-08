@@ -75,8 +75,6 @@
   let _resources    = [];
   let _categories   = [];
   let _tags         = [];
-  let _storageFiles = [];   // Appwrite Storage bucket file list
-  let _uploadBusy   = false;
   let _statusFilter = 'all';
   let _searchQ      = '';
   let _catFilter    = '';
@@ -94,11 +92,6 @@
   /* _db() is used only for Firestore taxonomy (categories/tags). */
   function _db()   { return window.db || (firebase.apps.length && firebase.firestore()); }
   function _esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  function _fmtBytes(n) {
-    if (n < 1024)           return n + ' B';
-    if (n < 1024 * 1024)    return (n / 1024).toFixed(1) + ' KB';
-    return (n / 1024 / 1024).toFixed(2) + ' MB';
-  }
   function _ts(v) {
     if (!v) return '—';
     const d = v.toDate ? v.toDate() : new Date(v);
@@ -170,219 +163,6 @@
     _unsubRes = _awClient.subscribe(channel, function() {
       _fetchAllResources();
     });
-  }
-
-  /* ══════════════════════════════════════════════════════════════
-     APPWRITE STORAGE PANEL
-  ══════════════════════════════════════════════════════════════ */
-
-  /** Fetch all files in the Appwrite Storage bucket. */
-  async function _fetchStorageFiles() {
-    if (!_awStor) return;
-    try {
-      const resp = await _awStor.listFiles(AW_BKT_ID);
-      _storageFiles = resp.files || [];
-      _renderStoragePanel();
-    } catch (e) {
-      console.error('[LibAdmin] fetchStorageFiles:', e);
-    }
-  }
-
-  /**
-   * Render the bucket files table.
-   * Cross-references _resources by fileId to detect orphaned files.
-   */
-  function _renderStoragePanel() {
-    const tbody = _el('aw-storage-tbody');
-    if (!tbody) return;
-
-    // Keep category select in sync with loaded categories
-    const catSel = _el('aw-up-category');
-    if (catSel) {
-      catSel.innerHTML = '<option value="">— Select —</option>' +
-        _categories.map(c =>
-          `<option value="${_esc(c.id)}">${_esc(c.name)}</option>`
-        ).join('');
-    }
-
-    if (!_storageFiles.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:28px 0">No files in bucket.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = _storageFiles.map(function(f) {
-      const linked  = _resources.find(function(r) { return r.fileId === f.$id; });
-      const size    = _fmtBytes(f.sizeOriginal || 0);
-      const date    = _ts(f.$createdAt);
-      const mime    = (f.mimeType || '').split('/')[1] || '—';
-
-      const linkedHtml = linked
-        ? `<span class="la-badge la-badge-approved" title="${_esc(linked.title)}">✅ ${_esc(linked.title.length > 30 ? linked.title.slice(0,30) + '…' : linked.title)}</span>`
-        : '<span class="la-badge la-badge-pending" style="background:rgba(255,160,0,.15);color:#ffa000">⚠ Orphan</span>';
-
-      // Build a view URL via the REST endpoint (no SDK method needed)
-      const viewUrl = AW_ENDPOINT + '/storage/buckets/' + AW_BKT_ID + '/files/' + f.$id + '/view?project=' + AW_PROJECT;
-
-      return `
-      <tr>
-        <td style="font-size:12px;word-break:break-all;max-width:200px">${_esc(f.name)}</td>
-        <td style="white-space:nowrap">${size}</td>
-        <td style="font-size:11px;color:var(--text-dim)">${_esc(mime)}</td>
-        <td>${linkedHtml}</td>
-        <td class="la-date">${date}</td>
-        <td>
-          <div class="la-actions">
-            <a class="la-btn" href="${viewUrl}" target="_blank" rel="noopener" title="Open file">👁 View</a>
-            ${linked
-              ? `<button class="la-btn la-btn-delete" onclick="LibAdmin.deleteFileAndRecord('${_esc(f.$id)}','${_esc(linked.id)}')" title="Delete file + DB record">🗑 File+Record</button>`
-              : `<button class="la-btn la-btn-delete" onclick="LibAdmin.deleteFileOnly('${_esc(f.$id)}')" title="Delete file only">🗑 File</button>`
-            }
-          </div>
-        </td>
-      </tr>`;
-    }).join('');
-  }
-
-  /** Toggle file input vs URL input based on selected type. */
-  function onUploadTypeChange() {
-    const type = (_el('aw-up-type') || {}).value;
-    const fw = _el('aw-up-file-wrap');
-    const lw = _el('aw-up-link-wrap');
-    if (fw) fw.style.display = type === 'link' ? 'none' : '';
-    if (lw) lw.style.display = type === 'link' ? ''     : 'none';
-  }
-
-  /** Admin direct upload: uploads file to Appwrite Storage then creates DB record. */
-  async function submitAdminUpload() {
-    if (_uploadBusy) return;
-    if (!_awDb || !_awStor) { _toast('Appwrite not initialised.', 'error'); return; }
-
-    const title    = (_el('aw-up-title').value  || '').trim();
-    const desc     = (_el('aw-up-desc').value   || '').trim();
-    const source   = (_el('aw-up-source').value || '').trim();
-    const category = (_el('aw-up-category').value || '');
-    const status   = (_el('aw-up-status').value   || 'approved');
-    const type     = (_el('aw-up-type').value     || 'pdf');
-    const tagsRaw  = (_el('aw-up-tags').value     || '');
-    const tags     = tagsRaw.split(',').map(function(t){return t.trim().toLowerCase();}).filter(Boolean).slice(0, 10);
-    const fileEl   = _el('aw-up-file');
-    const linkEl   = _el('aw-up-link');
-    const file     = fileEl && fileEl.files[0];
-    const extLink  = (linkEl && linkEl.value || '').trim();
-
-    if (!title)                              { _toast('Title is required.', 'warning');        return; }
-    if (!desc)                               { _toast('Description is required.', 'warning');  return; }
-    if (!source)                             { _toast('Source is required.', 'warning');        return; }
-    if (type === 'link' && !extLink)         { _toast('External URL is required.', 'warning'); return; }
-    if (type !== 'link' && !file)            { _toast('Select a file to upload.', 'warning');  return; }
-    if (type !== 'link' && file.size > 25 * 1024 * 1024) {
-      _toast('File exceeds the 25 MB limit.', 'warning'); return;
-    }
-
-    _uploadBusy = true;
-    const btn  = _el('aw-up-btn');
-    const prog = _el('aw-up-progress');
-    btn.disabled = true;
-    if (prog) prog.textContent = type !== 'link' ? 'Uploading file…' : 'Creating record…';
-
-    let fileId   = '';
-    let fileName = '';
-    let fileSize = 0;
-
-    try {
-      // Step 1: upload file to Appwrite Storage (skip for link type)
-      if (type !== 'link') {
-        if (prog) prog.textContent = 'Uploading file…';
-        const uploaded = await _awStor.createFile(AW_BKT_ID, Appwrite.ID.unique(), file);
-        fileId   = uploaded.$id;
-        fileName = file.name;
-        fileSize = file.size;
-      }
-
-      // Step 2: create document in Appwrite DB
-      if (prog) prog.textContent = 'Creating record…';
-      await _awDb.createDocument(AW_DB_ID, AW_COL_ID, Appwrite.ID.unique(), {
-        title,
-        titleLower:    title.toLowerCase(),
-        description:   desc,
-        source,
-        category,
-        tags,
-        fileType:      type,
-        fileId,
-        externalLink:  type === 'link' ? extLink : '',
-        fileName,
-        fileSize,
-        uploadedBy:    'admin',
-        uploaderName:  'Admin',
-        createdAt:     new Date().toISOString(),
-        status,
-        reviewNote:    '',
-        bookmarkCount: 0,
-        viewCount:     0,
-        downloadCount: 0,
-      });
-
-      _toast('✅ Resource uploaded successfully.', 'success');
-
-      // Reset form
-      ['aw-up-title','aw-up-desc','aw-up-source','aw-up-tags'].forEach(function(id) {
-        var el = _el(id); if (el) el.value = '';
-      });
-      if (fileEl) fileEl.value = '';
-      if (linkEl) linkEl.value = '';
-      if (prog) prog.textContent = '';
-
-      // Refresh both lists
-      await _fetchAllResources();
-      await _fetchStorageFiles();
-
-    } catch (e) {
-      // If DB write failed but file was uploaded, try to clean up the orphan file
-      if (fileId) {
-        try { await _awStor.deleteFile(AW_BKT_ID, fileId); }
-        catch (_) { /* ignore secondary error */ }
-      }
-      _toast('Upload failed: ' + e.message, 'error');
-      if (prog) prog.textContent = '';
-    } finally {
-      _uploadBusy   = false;
-      btn.disabled  = false;
-    }
-  }
-
-  /** Delete an orphaned file from Appwrite Storage (no linked DB record). */
-  async function deleteFileOnly(fileId) {
-    if (!_confirm('Delete this file from storage?\nThis cannot be undone.')) return;
-    if (!_awStor) return;
-    try {
-      await _awStor.deleteFile(AW_BKT_ID, fileId);
-      _toast('🗑 File deleted from storage.', 'success');
-      await _fetchStorageFiles();
-    } catch (e) {
-      _toast('Delete failed: ' + e.message, 'error');
-    }
-  }
-
-  /** Delete a file from Appwrite Storage AND its linked DB document. */
-  async function deleteFileAndRecord(fileId, docId) {
-    if (!_confirm('Delete the file from storage AND remove the linked database record?\nThis cannot be undone.')) return;
-    if (!_awDb || !_awStor) return;
-    try {
-      try { await _awStor.deleteFile(AW_BKT_ID, fileId); }
-      catch (se) { console.warn('[LibAdmin] storage delete:', se.message); }
-      await _awDb.deleteDocument(AW_DB_ID, AW_COL_ID, docId);
-      _toast('🗑 File and record deleted.', 'success');
-      await _fetchAllResources();
-      await _fetchStorageFiles();
-    } catch (e) {
-      _toast('Delete failed: ' + e.message, 'error');
-    }
-  }
-
-  /** Manually refresh the storage files list. */
-  async function refreshStorage() {
-    await _fetchStorageFiles();
   }
 
   /* ══════════════════════════════════════════════════════════════
@@ -565,15 +345,14 @@
   ══════════════════════════════════════════════════════════════ */
   function switchPanel(panel) {
     _panel = panel;
-    document.querySelectorAll('.la-sntab').forEach(function(b) {
+    document.querySelectorAll('.la-sntab').forEach(b => {
       b.classList.toggle('active', b.dataset.panel === panel);
     });
-    document.querySelectorAll('.la-panel').forEach(function(p) {
+    document.querySelectorAll('.la-panel').forEach(p => {
       p.classList.toggle('active', p.id === 'la-panel-' + panel);
     });
     if (panel === 'categories') _renderCategoriesPanel();
     if (panel === 'tags')       _renderTagsPanel();
-    if (panel === 'storage')    _fetchStorageFiles();
   }
 
   /* ══════════════════════════════════════════════════════════════
@@ -927,12 +706,6 @@
     closeEditModal,
     saveResourceEdit,
     deleteResource,
-    // Storage
-    onUploadTypeChange,
-    submitAdminUpload,
-    deleteFileOnly,
-    deleteFileAndRecord,
-    refreshStorage,
     // Categories
     addCategory,
     openEditCat,

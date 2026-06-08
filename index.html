@@ -21,6 +21,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+<!-- Appwrite SDK — required by library_admin.js for resource backend -->
+<script src="https://cdn.jsdelivr.net/npm/appwrite@15/dist/iife/sdk.js"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
@@ -667,7 +669,6 @@
         </div>
         <div class="la-subnav">
           <button class="la-sntab active" data-panel="resources"  onclick="LibAdmin.switchPanel('resources')">📄 Resources</button>
-          <button class="la-sntab"        data-panel="storage"    onclick="LibAdmin.switchPanel('storage')">💾 Storage</button>
           <button class="la-sntab"        data-panel="categories" onclick="LibAdmin.switchPanel('categories')">🗂 Categories</button>
           <button class="la-sntab"        data-panel="tags"       onclick="LibAdmin.switchPanel('tags')">🏷 Tags</button>
         </div>
@@ -740,93 +741,6 @@
             </table>
           </div>
         </div>
-        <!-- Storage Panel -->
-        <div class="la-panel" id="la-panel-storage">
-
-          <!-- Direct Upload Card -->
-          <div class="stg-card" style="margin-bottom:18px">
-            <div class="stg-card-hdr">⬆ Direct Upload</div>
-            <div style="padding:16px">
-              <div style="display:flex;gap:12px;flex-wrap:wrap">
-                <div class="dev-field" style="flex:2;min-width:200px">
-                  <label class="dev-label">Title</label>
-                  <input class="dev-input" id="aw-up-title" type="text" maxlength="200" placeholder="Resource title…">
-                </div>
-                <div class="dev-field" style="flex:1;min-width:130px">
-                  <label class="dev-label">File Type</label>
-                  <select class="dev-input" id="aw-up-type" onchange="LibAdmin.onUploadTypeChange()">
-                    <option value="pdf">PDF Document</option>
-                    <option value="docx">Word (DOCX)</option>
-                    <option value="image">Image</option>
-                    <option value="link">External Link</option>
-                  </select>
-                </div>
-              </div>
-              <div class="dev-field">
-                <label class="dev-label">Description</label>
-                <textarea class="dev-input dev-textarea" id="aw-up-desc" rows="2" maxlength="800" placeholder="Brief description…"></textarea>
-              </div>
-              <div style="display:flex;gap:12px;flex-wrap:wrap">
-                <div class="dev-field" style="flex:1;min-width:160px">
-                  <label class="dev-label">Source / Author</label>
-                  <input class="dev-input" id="aw-up-source" type="text" maxlength="200" placeholder="Publisher, journal, organisation…">
-                </div>
-                <div class="dev-field" style="flex:1;min-width:140px">
-                  <label class="dev-label">Category</label>
-                  <select class="dev-input" id="aw-up-category"><option value="">— Select —</option></select>
-                </div>
-                <div class="dev-field" style="flex:0 0 120px">
-                  <label class="dev-label">Status</label>
-                  <select class="dev-input" id="aw-up-status">
-                    <option value="approved" selected>✅ Approved</option>
-                    <option value="pending">⏳ Pending</option>
-                  </select>
-                </div>
-              </div>
-              <div class="dev-field">
-                <label class="dev-label">Tags <small style="color:var(--text-dim)">(comma-separated)</small></label>
-                <input class="dev-input" id="aw-up-tags" type="text" placeholder="e.g. enteral, pediatric, ASPEN">
-              </div>
-              <div id="aw-up-file-wrap" class="dev-field">
-                <label class="dev-label">File <small style="color:var(--text-dim)">(max 25 MB · PDF / DOCX / Image)</small></label>
-                <input class="dev-input" id="aw-up-file" type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.gif,.webp">
-              </div>
-              <div id="aw-up-link-wrap" class="dev-field" style="display:none">
-                <label class="dev-label">External URL</label>
-                <input class="dev-input" id="aw-up-link" type="url" placeholder="https://…">
-              </div>
-              <div style="display:flex;align-items:center;gap:14px;margin-top:8px">
-                <button class="la-modal-btn la-btn-approve" id="aw-up-btn" onclick="LibAdmin.submitAdminUpload()">⬆ Upload</button>
-                <span id="aw-up-progress" style="font-size:13px;color:var(--text-dim)"></span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bucket Files Table -->
-          <div class="stg-card">
-            <div class="stg-card-hdr" style="display:flex;align-items:center;justify-content:space-between">
-              <span>🗄 Bucket Files</span>
-              <button class="la-pg-btn" onclick="LibAdmin.refreshStorage()" style="padding:4px 14px;font-size:12px">↻ Refresh</button>
-            </div>
-            <div class="urm-table-wrap" style="padding:0 0 8px">
-              <table class="urm-table la-table">
-                <thead>
-                  <tr>
-                    <th>File Name</th>
-                    <th>Size</th>
-                    <th>Type</th>
-                    <th>Linked Record</th>
-                    <th>Uploaded</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="aw-storage-tbody"></tbody>
-              </table>
-            </div>
-          </div>
-
-        </div><!-- /storage panel -->
-
       </div><!-- /library -->
 
       <!-- MODAL: Review -->
