@@ -1,23 +1,75 @@
 /* ═══════════════════════════════════════════════════════════════════
    library_admin.js — Oasis Admin: Nutrition Resource Library
    ───────────────────────────────────────────────────────────────────
-   Version  : 1.0.0
+   Version  : 1.1.0
    Author   : Edison Taimu
-   Requires : firebase-app-compat, firebase-auth-compat,
-              firebase-firestore-compat, firebase-storage-compat
-   Collections:
-     • library_resources   — submitted resources
+   Resources backend : Appwrite Databases + Storage
+     (project: 6a25de8d000c21cbdbba — Singapore)
+   Taxonomy backend  : Firebase Firestore (admin-only)
      • library_categories  — admin-managed categories
      • library_tags        — admin-managed canonical tags
+   Requires : appwrite@15 IIFE SDK (CDN, loaded before this script)
+              firebase-app-compat, firebase-auth-compat,
+              firebase-firestore-compat
 ═══════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
 
-  /* ── Constants ─────────────────────────────────────────────── */
-  const COL_RES  = 'library_resources';
+  /* ── Appwrite config (mirrors main app appwriteClient.js) ──── */
+  const AW_ENDPOINT = 'https://sgp.cloud.appwrite.io/v1';
+  const AW_PROJECT  = '6a25de8d000c21cbdbba';
+  const AW_DB_ID    = '6a25e03b0031c4391fa4';
+  const AW_BKT_ID   = '6a25df33001285e51ee6';
+  const AW_COL_ID   = 'library-resources';
+
+  /* ── Firebase collections (taxonomy — stays on Firestore) ──── */
   const COL_CATS = 'library_categories';
   const COL_TAGS = 'library_tags';
   const PAGE_SZ  = 20;
+
+  /* ── Appwrite service instances ────────────────────────────── */
+  let _awClient = null;
+  let _awDb     = null;
+  let _awStor   = null;
+
+  function _initAppwrite() {
+    if (typeof Appwrite === 'undefined' || !Appwrite.Client) {
+      console.error('[LibAdmin] Appwrite SDK not loaded — add CDN before library_admin.js.');
+      return false;
+    }
+    _awClient = new Appwrite.Client().setEndpoint(AW_ENDPOINT).setProject(AW_PROJECT);
+    _awDb     = new Appwrite.Databases(_awClient);
+    _awStor   = new Appwrite.Storage(_awClient);
+    console.log('[LibAdmin] Appwrite initialised — project:', AW_PROJECT);
+    return true;
+  }
+
+  /* ── Normalise Appwrite document → internal shape ──────────── */
+  /* Appwrite uses $id; createdAt is the upload timestamp.        */
+  function _normDoc(doc) {
+    return {
+      id:           doc.$id,
+      title:        doc.title        || '',
+      titleLower:   doc.titleLower   || '',
+      description:  doc.description  || '',
+      category:     doc.category     || '',
+      tags:         doc.tags         || [],
+      source:       doc.source       || '',
+      fileType:     doc.fileType     || '',
+      fileId:       doc.fileId       || '',
+      externalLink: doc.externalLink || '',
+      fileName:     doc.fileName     || '',
+      fileSize:     doc.fileSize     || 0,
+      uploadedBy:   doc.uploadedBy   || '',
+      uploaderName: doc.uploaderName || '',
+      uploadedAt:   doc.createdAt    || '',   // alias used by _ts() date column
+      status:       doc.status       || 'pending',
+      reviewNote:   doc.reviewNote   || '',
+      bookmarkCount:doc.bookmarkCount|| 0,
+      viewCount:    doc.viewCount    || 0,
+      downloadCount:doc.downloadCount|| 0,
+    };
+  }
 
   /* ── State ─────────────────────────────────────────────────── */
   let _resources    = [];
@@ -37,8 +89,8 @@
   let _initialized  = false;
 
   /* ── Helpers ───────────────────────────────────────────────── */
+  /* _db() is used only for Firestore taxonomy (categories/tags). */
   function _db()   { return window.db || (firebase.apps.length && firebase.firestore()); }
-  function _stor() { return typeof firebase !== 'undefined' && firebase.storage ? firebase.storage() : null; }
   function _esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function _ts(v) {
     if (!v) return '—';
@@ -71,7 +123,8 @@
       return;
     }
     _initialized = true;
-    _signInAnon().then(() => {
+    _initAppwrite();               // Appwrite — resources backend
+    _signInAnon().then(() => {     // Firebase anon — Firestore taxonomy
       _listenResources();
       _loadCategories();
       _loadTags();
@@ -79,21 +132,42 @@
   }
 
   /* ══════════════════════════════════════════════════════════════
-     FIRESTORE LISTENERS
+     APPWRITE RESOURCE LISTENER
+     Fetches all documents from Appwrite Databases and subscribes
+     to Realtime for live create/update/delete events.
   ══════════════════════════════════════════════════════════════ */
-  function _listenResources() {
-    if (_unsubRes) _unsubRes();
-    const d = _db(); if (!d) return;
-    _unsubRes = d.collection(COL_RES)
-      .orderBy('uploadedAt', 'desc')
-      .onSnapshot(snap => {
-        _resources = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        _updateKPIs();
-        _renderResourcesTable();
-        _updateCatFilter();
-      }, err => console.error('[LibAdmin] resources listener:', err));
+  async function _fetchAllResources() {
+    if (!_awDb) return;
+    try {
+      const resp = await _awDb.listDocuments(AW_DB_ID, AW_COL_ID, [
+        Appwrite.Query.orderDesc('createdAt'),
+        Appwrite.Query.limit(300),
+      ]);
+      _resources = resp.documents.map(_normDoc);
+      _updateKPIs();
+      _renderResourcesTable();
+      _updateCatFilter();
+    } catch (e) {
+      console.error('[LibAdmin] fetchAllResources:', e);
+    }
   }
 
+  function _listenResources() {
+    if (!_awClient) return;
+    // Tear down any previous subscription
+    if (_unsubRes) { try { _unsubRes(); } catch(e) {} _unsubRes = null; }
+    // Initial fetch
+    _fetchAllResources();
+    // Realtime — re-fetch on any document event in the collection
+    const channel = 'databases.' + AW_DB_ID + '.collections.' + AW_COL_ID + '.documents';
+    _unsubRes = _awClient.subscribe(channel, function() {
+      _fetchAllResources();
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     FIRESTORE — Categories & Tags (taxonomy, admin-only)
+  ══════════════════════════════════════════════════════════════ */
   async function _loadCategories() {
     const d = _db(); if (!d) return;
     try {
@@ -311,16 +385,15 @@
     const id = _reviewId, action = _reviewAction;
     if (!id || !action) return;
     const note = (_el('la-review-note').value || '').trim();
-    const d = _db(); if (!d) return;
+    if (!_awDb) { _toast('Appwrite not initialised.', 'error'); return; }
 
     const btn = _el('la-review-confirm-btn');
     btn.disabled = true; btn.textContent = 'Saving…';
 
     try {
-      await d.collection(COL_RES).doc(id).update({
+      await _awDb.updateDocument(AW_DB_ID, AW_COL_ID, id, {
         status:     action === 'approve' ? 'approved' : 'rejected',
         reviewNote: note,
-        reviewedAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
       closeReviewModal();
       _toast(action === 'approve' ? '✅ Resource approved.' : '❌ Resource rejected.', 'success');
@@ -362,7 +435,7 @@
 
   async function saveResourceEdit() {
     const id = _editResId; if (!id) return;
-    const d = _db(); if (!d) return;
+    if (!_awDb) { _toast('Appwrite not initialised.', 'error'); return; }
 
     const title    = (_el('la-edit-title').value  || '').trim();
     const desc     = (_el('la-edit-desc').value   || '').trim();
@@ -380,10 +453,14 @@
     btn.disabled = true; btn.textContent = 'Saving…';
 
     try {
-      await d.collection(COL_RES).doc(id).update({
-        title, titleLower: title.toLowerCase().trim(),
-        description: desc, source, category, tags, status,
-        editedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      await _awDb.updateDocument(AW_DB_ID, AW_COL_ID, id, {
+        title,
+        titleLower:  title.toLowerCase(),
+        description: desc,
+        source,
+        category,
+        tags,
+        status,
       });
       closeEditModal();
       _toast('✎ Resource updated.', 'success');
@@ -401,17 +478,18 @@
     const r = _resources.find(x => x.id === id);
     if (!r) return;
     if (!_confirm(`Delete "${r.title}"?\nThis cannot be undone.`)) return;
+    if (!_awDb) { _toast('Appwrite not initialised.', 'error'); return; }
 
-    const d = _db(); if (!d) return;
     try {
-      // Delete Storage file if present
-      if (r.fileURL && r.fileURL.includes('firebasestorage')) {
+      // Delete Appwrite Storage file if present
+      if (r.fileId && _awStor) {
         try {
-          const stor = _stor();
-          if (stor) await stor.refFromURL(r.fileURL).delete();
-        } catch (se) { console.warn('[LibAdmin] Storage delete skipped:', se.message); }
+          await _awStor.deleteFile(AW_BKT_ID, r.fileId);
+        } catch (se) {
+          console.warn('[LibAdmin] Storage delete skipped:', se.message);
+        }
       }
-      await d.collection(COL_RES).doc(id).delete();
+      await _awDb.deleteDocument(AW_DB_ID, AW_COL_ID, id);
       _toast('🗑 Resource deleted.', 'success');
     } catch (e) {
       _toast('Delete failed: ' + e.message, 'error');
