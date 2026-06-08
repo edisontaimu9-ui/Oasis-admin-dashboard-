@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    library_admin.js — Oasis Admin: Nutrition Resource Library
    ───────────────────────────────────────────────────────────────────
-   Version  : 1.1.0
+   Version  : 1.2.0
    Author   : Edison Taimu
    Resources backend : Appwrite Databases + Storage
      (project: 6a25de8d000c21cbdbba — Singapore)
@@ -171,18 +171,18 @@
   ══════════════════════════════════════════════════════════════ */
   /* Default clinical nutrition categories — seeded once if collection is empty */
   const DEFAULT_CATEGORIES = [
-    { id: 'clinical_assessment',    name: 'Clinical Assessment' },
-    { id: 'enteral_nutrition',      name: 'Enteral Nutrition' },
-    { id: 'parenteral_nutrition',   name: 'Parenteral Nutrition' },
-    { id: 'malnutrition',           name: 'Malnutrition & Undernutrition' },
-    { id: 'renal_nutrition',        name: 'Renal Nutrition' },
-    { id: 'diabetes_nutrition',     name: 'Diabetes & Metabolic' },
-    { id: 'oncology_nutrition',     name: 'Oncology Nutrition' },
-    { id: 'pediatric_nutrition',    name: 'Paediatric Nutrition' },
-    { id: 'critical_care',          name: 'Critical Care Nutrition' },
-    { id: 'gi_hepatic',             name: 'GI & Hepatic Nutrition' },
-    { id: 'food_drug_interactions', name: 'Food–Drug Interactions' },
-    { id: 'community_nutrition',    name: 'Community & Public Health' },
+    { id: 'clinical_guidelines',          name: 'Clinical Guidelines' },
+    { id: 'research_articles',            name: 'Research Articles' },
+    { id: 'protocols_sops',               name: 'Protocols & SOPs' },
+    { id: 'patient_education',            name: 'Patient Education' },
+    { id: 'reference_tables_charts',      name: 'Reference Tables & Charts' },
+    { id: 'assessment_tools',             name: 'Assessment Tools' },
+    { id: 'enteral_parenteral_nutrition', name: 'Enteral & Parenteral Nutrition' },
+    { id: 'pediatric_nutrition',          name: 'Pediatric Nutrition' },
+    { id: 'disease_specific_nutrition',   name: 'Disease-Specific Nutrition' },
+    { id: 'malawi_sub_saharan_africa',    name: 'Malawi / Sub-Saharan Africa' },
+    { id: 'textbooks_manuals',            name: 'Textbooks & Manuals' },
+    { id: 'other',                        name: 'Other' },
   ];
 
   async function _seedDefaultCategories(db) {
