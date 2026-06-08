@@ -87,6 +87,7 @@
   let _editTagId    = null;
   let _unsubRes     = null;
   let _initialized  = false;
+  let _uploadFile   = null;   // File object pending upload
 
   /* ── Helpers ───────────────────────────────────────────────── */
   /* _db() is used only for Firestore taxonomy (categories/tags). */
@@ -472,6 +473,253 @@
   }
 
   /* ══════════════════════════════════════════════════════════════
+     UPLOAD RESOURCE MODAL
+  ══════════════════════════════════════════════════════════════ */
+  function _formatFileSize(bytes) {
+    if (!bytes) return '0 B';
+    if (bytes < 1024)    return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(2) + ' MB';
+  }
+
+  function _detectFileType(file) {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const map = {
+      pdf: 'PDF',
+      doc: 'DOCX', docx: 'DOCX',
+      ppt: 'PPTX', pptx: 'PPTX',
+      xls: 'XLSX', xlsx: 'XLSX', csv: 'XLSX',
+      zip: 'ZIP', rar: 'ZIP', '7z': 'ZIP',
+      jpg: 'Image', jpeg: 'Image', png: 'Image',
+      gif: 'Image', svg: 'Image', webp: 'Image',
+      mp4: 'Video', mov: 'Video',
+    };
+    return map[ext] || ext.toUpperCase() || 'File';
+  }
+
+  function _fileTypeIcon(type) {
+    const icons = {
+      PDF: '📄', DOCX: '📝', PPTX: '📊', XLSX: '📈',
+      ZIP: '🗜', Image: '🖼', Video: '🎬',
+    };
+    return icons[type] || '📎';
+  }
+
+  function _resetUploadModal() {
+    _uploadFile = null;
+    const inp = _el('la-upload-file-input');
+    if (inp) inp.value = '';
+    const dz = _el('la-upload-drop-zone');
+    if (dz) { dz.classList.remove('has-file', 'drag-over'); }
+    const hide = ['la-upload-file-card', 'la-upload-progress-section', 'la-upload-status-msg', 'la-upload-form-fields'];
+    hide.forEach(id => { const el = _el(id); if (el) el.style.display = 'none'; });
+    ['la-upload-title', 'la-upload-source', 'la-upload-tags'].forEach(id => {
+      const el = _el(id); if (el) el.value = '';
+    });
+    const descEl = _el('la-upload-desc'); if (descEl) descEl.value = '';
+    const btn = _el('la-upload-submit-btn');
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Upload'; }
+    const fill = _el('la-upload-progress-fill');
+    if (fill) fill.style.width = '0%';
+  }
+
+  function openUploadModal() {
+    _resetUploadModal();
+    // Populate category dropdown
+    const catOpts = _categories.map(c =>
+      `<option value="${_esc(c.id)}">${_esc(c.name)}</option>`
+    ).join('');
+    const catSel = _el('la-upload-category');
+    if (catSel) catSel.innerHTML = '<option value="">— No Category —</option>' + catOpts;
+    _el('la-upload-overlay').style.display = 'flex';
+  }
+
+  function closeUploadModal() {
+    _el('la-upload-overlay').style.display = 'none';
+    _uploadFile = null;
+  }
+
+  function onUploadFileSelect(input) {
+    const file = input.files && input.files[0];
+    if (file) _setUploadFile(file);
+  }
+
+  function onUploadDrop(e) {
+    e.preventDefault();
+    const dz = _el('la-upload-drop-zone');
+    if (dz) dz.classList.remove('drag-over');
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) _setUploadFile(file);
+  }
+
+  function onUploadDragOver(e) {
+    e.preventDefault();
+    const dz = _el('la-upload-drop-zone');
+    if (dz) dz.classList.add('drag-over');
+  }
+
+  function onUploadDragLeave() {
+    const dz = _el('la-upload-drop-zone');
+    if (dz) dz.classList.remove('drag-over');
+  }
+
+  function _setUploadFile(file) {
+    _uploadFile = file;
+    const type = _detectFileType(file);
+    const icon = _fileTypeIcon(type);
+    const size = _formatFileSize(file.size);
+    const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+
+    // Auto-populate title if blank
+    const titleEl = _el('la-upload-title');
+    if (titleEl && !titleEl.value) {
+      titleEl.value = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+    }
+
+    // Update drop zone visual
+    const dz = _el('la-upload-drop-zone');
+    if (dz) dz.classList.add('has-file');
+    const dzIcon = _el('la-upload-drop-icon');
+    if (dzIcon) dzIcon.textContent = icon;
+
+    // Show file card
+    const card = _el('la-upload-file-card');
+    if (card) {
+      _el('la-upload-fcard-icon').textContent = icon;
+      _el('la-upload-fcard-name').textContent = file.name;
+      _el('la-upload-fcard-size').textContent = size;
+      _el('la-upload-fcard-type').textContent = type;
+      card.style.display = 'flex';
+    }
+
+    // Show form fields
+    const fields = _el('la-upload-form-fields');
+    if (fields) fields.style.display = 'block';
+
+    // Hide progress from previous attempt
+    const prog = _el('la-upload-progress-section');
+    if (prog) prog.style.display = 'none';
+    const statusMsg = _el('la-upload-status-msg');
+    if (statusMsg) statusMsg.style.display = 'none';
+  }
+
+  function _setUploadStatus(msg, type) {
+    // type: '' | 'uploading' | 'success' | 'error'
+    const el = _el('la-upload-status-msg');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'la-upload-status-msg' + (type ? ' la-upload-status--' + type : '');
+    el.style.display = msg ? 'block' : 'none';
+  }
+
+  async function uploadResource() {
+    if (!_uploadFile) { _toast('Please select a file first.', 'warning'); return; }
+    if (!_awStor || !_awDb) { _toast('Appwrite not initialised.', 'error'); return; }
+
+    const title   = (_el('la-upload-title').value  || '').trim();
+    const desc    = (_el('la-upload-desc').value   || '').trim();
+    const source  = (_el('la-upload-source').value || '').trim();
+    const cat     = _el('la-upload-category').value || '';
+    const tagsRaw = _el('la-upload-tags').value    || '';
+    const tags    = tagsRaw.split(',').map(t => t.trim()).filter(Boolean).slice(0, 10);
+
+    if (!title) { _toast('Title is required.', 'warning'); return; }
+    if (!desc)  { _toast('Description is required.', 'warning'); return; }
+
+    const btn = _el('la-upload-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+
+    // Show progress section
+    const progSection = _el('la-upload-progress-section');
+    const progFill    = _el('la-upload-progress-fill');
+    const progPct     = _el('la-upload-progress-pct');
+    const progSizes   = _el('la-upload-progress-sizes');
+    progSection.style.display = 'block';
+    progFill.style.width = '0%';
+    progPct.textContent  = '0%';
+    progSizes.textContent = '0 B / ' + _formatFileSize(_uploadFile.size);
+
+    _setUploadStatus('⬆️ Uploading file to Appwrite Storage…', 'uploading');
+
+    const fileId   = Appwrite.ID.unique();
+    const fileType = _detectFileType(_uploadFile);
+    const totalSize = _uploadFile.size;
+
+    try {
+      /* ── Step 1: Upload file to Appwrite Storage ─────────── */
+      const fileResp = await _awStor.createFile(
+        AW_BKT_ID,
+        fileId,
+        _uploadFile,
+        [],  // permissions (bucket defaults apply)
+        (progress) => {
+          const pct = Math.min(100, Math.round(progress.progress || 0));
+          progFill.style.width = pct + '%';
+          progPct.textContent  = pct + '%';
+          progSizes.textContent = _formatFileSize(progress.sizeUploaded || 0) +
+                                  ' / ' + _formatFileSize(totalSize);
+        }
+      );
+
+      // Full bar
+      progFill.style.width = '100%';
+      progPct.textContent  = '100%';
+      progSizes.textContent = _formatFileSize(totalSize) + ' / ' + _formatFileSize(totalSize);
+
+      /* ── Step 2: Build storage view URL ───────────────────── */
+      const storageUrl = AW_ENDPOINT +
+        '/storage/buckets/' + AW_BKT_ID +
+        '/files/' + fileResp.$id +
+        '/view?project=' + AW_PROJECT;
+
+      /* ── Step 3: Resolve uploader info from Firebase auth ─── */
+      let uploadedBy   = 'admin';
+      let uploaderName = 'Admin';
+      try {
+        const fbUser = firebase.auth && firebase.auth().currentUser;
+        if (fbUser) {
+          uploadedBy   = fbUser.uid;
+          uploaderName = fbUser.displayName || fbUser.email || 'Admin';
+        }
+      } catch (_ignore) {}
+
+      /* ── Step 4: Create library-resources document ────────── */
+      _setUploadStatus('💾 Creating library record…', 'uploading');
+      await _awDb.createDocument(AW_DB_ID, AW_COL_ID, Appwrite.ID.unique(), {
+        title,
+        titleLower:   title.toLowerCase(),
+        description:  desc,
+        source:       source || 'Admin Upload',
+        category:     cat,
+        tags,
+        fileType,
+        fileId:       fileResp.$id,
+        fileName:     _uploadFile.name,
+        fileSize:     totalSize,
+        externalLink: storageUrl,
+        uploadedBy,
+        uploaderName,
+        status:       'approved',  // admin uploads publish immediately
+      });
+
+      _setUploadStatus('✅ Upload complete! Resource published to library.', 'success');
+      btn.textContent = '✅ Done';
+      _toast('✅ Resource uploaded and published.', 'success');
+      // Auto-close after a short pause
+      setTimeout(() => closeUploadModal(), 1800);
+
+    } catch (e) {
+      console.error('[LibAdmin] uploadResource error:', e);
+      const msg = (e && e.message) ? e.message : 'Unknown error';
+      _setUploadStatus('❌ Upload failed: ' + msg, 'error');
+      btn.disabled = false;
+      btn.textContent = '📤 Retry Upload';
+      _toast('Upload failed: ' + msg, 'error');
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════
      DELETE RESOURCE
   ══════════════════════════════════════════════════════════════ */
   async function deleteResource(id) {
@@ -706,6 +954,14 @@
     closeEditModal,
     saveResourceEdit,
     deleteResource,
+    // Upload Resource
+    openUploadModal,
+    closeUploadModal,
+    onUploadFileSelect,
+    onUploadDrop,
+    onUploadDragOver,
+    onUploadDragLeave,
+    uploadResource,
     // Categories
     addCategory,
     openEditCat,

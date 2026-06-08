@@ -687,6 +687,7 @@
             </select>
             <input class="la-search" id="la-search" type="text" placeholder="Search title, uploader…" oninput="LibAdmin.onSearch(this.value)">
             <span class="la-count-label" id="la-count">—</span>
+            <button class="la-modal-btn la-btn-approve la-upload-trigger-btn" onclick="LibAdmin.openUploadModal()">📤 Upload Resource</button>
           </div>
           <div class="urm-table-wrap">
             <table class="urm-table la-table">
@@ -782,6 +783,91 @@
           <div class="la-modal-footer">
             <button class="la-modal-btn la-modal-cancel" onclick="LibAdmin.closeEditModal()">Cancel</button>
             <button class="la-modal-btn la-btn-approve" id="la-edit-save-btn" onclick="LibAdmin.saveResourceEdit()">💾 Save Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: Upload Resource -->
+      <div class="la-overlay" id="la-upload-overlay" style="display:none" onclick="if(event.target===this)LibAdmin.closeUploadModal()">
+        <div class="la-modal la-modal-wide">
+          <div class="la-modal-hdr">
+            <span>📤 Upload Resource</span>
+            <button class="urm-modal-close" onclick="LibAdmin.closeUploadModal()">✕</button>
+          </div>
+          <div class="la-modal-body">
+
+            <!-- Drop Zone -->
+            <div class="la-upload-drop-zone" id="la-upload-drop-zone"
+                 onclick="document.getElementById('la-upload-file-input').click()"
+                 ondrop="LibAdmin.onUploadDrop(event)"
+                 ondragover="LibAdmin.onUploadDragOver(event)"
+                 ondragleave="LibAdmin.onUploadDragLeave(event)">
+              <input type="file" id="la-upload-file-input" style="display:none"
+                     accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.zip,.rar,.7z,.png,.jpg,.jpeg,.gif,.svg,.webp,.mp4,.mov"
+                     onchange="LibAdmin.onUploadFileSelect(this)">
+              <div class="la-upload-drop-icon" id="la-upload-drop-icon">📎</div>
+              <div class="la-upload-drop-label">Drop file here or <span class="la-upload-browse-link">browse</span></div>
+              <div class="la-upload-drop-types">PDF · DOCX · PPTX · XLSX · ZIP · Images</div>
+            </div>
+
+            <!-- File Info Card (hidden until file selected) -->
+            <div class="la-upload-file-card" id="la-upload-file-card" style="display:none">
+              <div class="la-upload-file-card-icon" id="la-upload-fcard-icon">📄</div>
+              <div class="la-upload-file-card-meta">
+                <div class="la-upload-file-card-name" id="la-upload-fcard-name">—</div>
+                <div class="la-upload-file-card-badges">
+                  <span class="la-upload-badge la-upload-badge-size" id="la-upload-fcard-size"></span>
+                  <span class="la-upload-badge la-upload-badge-type" id="la-upload-fcard-type"></span>
+                </div>
+              </div>
+              <button class="la-upload-change-btn" onclick="document.getElementById('la-upload-file-input').click()">Change</button>
+            </div>
+
+            <!-- Upload Progress (shown during upload) -->
+            <div class="la-upload-progress-section" id="la-upload-progress-section" style="display:none">
+              <div class="la-upload-progress-track">
+                <div class="la-upload-progress-fill" id="la-upload-progress-fill"></div>
+              </div>
+              <div class="la-upload-progress-meta">
+                <span class="la-upload-progress-sizes" id="la-upload-progress-sizes">0 B / 0 B</span>
+                <span class="la-upload-progress-pct" id="la-upload-progress-pct">0%</span>
+              </div>
+            </div>
+
+            <!-- Status Message -->
+            <div class="la-upload-status-msg" id="la-upload-status-msg" style="display:none"></div>
+
+            <!-- Form Fields (shown after file selected) -->
+            <div id="la-upload-form-fields" style="display:none">
+              <div class="la-upload-form-divider"></div>
+              <div class="dev-field">
+                <label class="dev-label">Title <span style="color:var(--red)">*</span></label>
+                <input class="dev-input" id="la-upload-title" type="text" maxlength="200" placeholder="e.g. ASPEN Nutrition Guidelines 2024">
+              </div>
+              <div class="dev-field">
+                <label class="dev-label">Description <span style="color:var(--red)">*</span></label>
+                <textarea class="dev-input dev-textarea" id="la-upload-desc" rows="3" maxlength="800" placeholder="Brief description of the resource content and audience…"></textarea>
+              </div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <div class="dev-field" style="flex:1;min-width:160px">
+                  <label class="dev-label">Source / Author</label>
+                  <input class="dev-input" id="la-upload-source" type="text" maxlength="200" placeholder="e.g. ASPEN, WHO, ESPEN, KUHeS">
+                </div>
+                <div class="dev-field" style="flex:1;min-width:140px">
+                  <label class="dev-label">Category</label>
+                  <select class="dev-input" id="la-upload-category"></select>
+                </div>
+              </div>
+              <div class="dev-field">
+                <label class="dev-label">Tags <small style="color:var(--text-dim)">(comma-separated)</small></label>
+                <input class="dev-input" id="la-upload-tags" type="text" placeholder="e.g. enteral-nutrition, guidelines, paediatric">
+              </div>
+            </div>
+
+          </div>
+          <div class="la-modal-footer">
+            <button class="la-modal-btn la-modal-cancel" onclick="LibAdmin.closeUploadModal()">Cancel</button>
+            <button class="la-modal-btn la-btn-approve" id="la-upload-submit-btn" onclick="LibAdmin.uploadResource()">📤 Upload</button>
           </div>
         </div>
       </div>
