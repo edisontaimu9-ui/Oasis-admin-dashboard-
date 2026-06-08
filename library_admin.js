@@ -169,11 +169,48 @@
   /* ══════════════════════════════════════════════════════════════
      FIRESTORE — Categories & Tags (taxonomy, admin-only)
   ══════════════════════════════════════════════════════════════ */
+  /* Default clinical nutrition categories — seeded once if collection is empty */
+  const DEFAULT_CATEGORIES = [
+    { id: 'clinical_assessment',    name: 'Clinical Assessment' },
+    { id: 'enteral_nutrition',      name: 'Enteral Nutrition' },
+    { id: 'parenteral_nutrition',   name: 'Parenteral Nutrition' },
+    { id: 'malnutrition',           name: 'Malnutrition & Undernutrition' },
+    { id: 'renal_nutrition',        name: 'Renal Nutrition' },
+    { id: 'diabetes_nutrition',     name: 'Diabetes & Metabolic' },
+    { id: 'oncology_nutrition',     name: 'Oncology Nutrition' },
+    { id: 'pediatric_nutrition',    name: 'Paediatric Nutrition' },
+    { id: 'critical_care',          name: 'Critical Care Nutrition' },
+    { id: 'gi_hepatic',             name: 'GI & Hepatic Nutrition' },
+    { id: 'food_drug_interactions', name: 'Food–Drug Interactions' },
+    { id: 'community_nutrition',    name: 'Community & Public Health' },
+  ];
+
+  async function _seedDefaultCategories(db) {
+    const batch = db.batch();
+    DEFAULT_CATEGORIES.forEach(cat => {
+      const ref = db.collection(COL_CATS).doc(cat.id);
+      batch.set(ref, {
+        id:        cat.id,
+        name:      cat.name,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+    await batch.commit();
+    console.log('[LibAdmin] Seeded', DEFAULT_CATEGORIES.length, 'default categories.');
+  }
+
   async function _loadCategories() {
     const d = _db(); if (!d) return;
     try {
       const snap = await d.collection(COL_CATS).orderBy('name').get();
-      _categories = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      if (snap.empty) {
+        // First-ever load — seed defaults then re-fetch
+        await _seedDefaultCategories(d);
+        const seeded = await d.collection(COL_CATS).orderBy('name').get();
+        _categories = seeded.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      } else {
+        _categories = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
       _renderCategoriesPanel();
       _updateCatFilter();
     } catch(e) { console.error('[LibAdmin] load cats:', e); }
@@ -409,10 +446,13 @@
   /* ══════════════════════════════════════════════════════════════
      EDIT RESOURCE MODAL
   ══════════════════════════════════════════════════════════════ */
-  function openEditModal(id) {
+  async function openEditModal(id) {
     const r = _resources.find(x => x.id === id);
     if (!r) return;
     _editResId = id;
+
+    // Ensure categories are loaded before populating the dropdown
+    if (!_categories.length) await _loadCategories();
 
     // Build category options
     const catOpts = _categories.map(c =>
@@ -523,8 +563,10 @@
     if (fill) fill.style.width = '0%';
   }
 
-  function openUploadModal() {
+  async function openUploadModal() {
     _resetUploadModal();
+    // Ensure categories are loaded before populating the dropdown
+    if (!_categories.length) await _loadCategories();
     // Populate category dropdown
     const catOpts = _categories.map(c =>
       `<option value="${_esc(c.id)}">${_esc(c.name)}</option>`
@@ -688,19 +730,23 @@
       _setUploadStatus('💾 Creating library record…', 'uploading');
       await _awDb.createDocument(AW_DB_ID, AW_COL_ID, Appwrite.ID.unique(), {
         title,
-        titleLower:   title.toLowerCase(),
-        description:  desc,
-        source:       source || 'Admin Upload',
-        category:     cat,
+        titleLower:    title.toLowerCase(),
+        description:   desc,
+        source:        source || 'Admin Upload',
+        category:      cat,
         tags,
         fileType,
-        fileId:       fileResp.$id,
-        fileName:     _uploadFile.name,
-        fileSize:     totalSize,
-        externalLink: storageUrl,
+        fileId:        fileResp.$id,
+        fileName:      _uploadFile.name,
+        fileSize:      totalSize,
+        externalLink:  storageUrl,
         uploadedBy,
         uploaderName,
-        status:       'approved',  // admin uploads publish immediately
+        status:        'approved',  // admin uploads publish immediately
+        reviewNote:    '',
+        bookmarkCount: 0,
+        viewCount:     0,
+        downloadCount: 0,
       });
 
       _setUploadStatus('✅ Upload complete! Resource published to library.', 'success');
