@@ -2925,10 +2925,11 @@ const FoodDB = (function () {
         '<td>' + flag + '</td>' +
         '<td style="white-space:nowrap">' +
           '<button class="la-modal-btn la-btn-approve" style="font-size:10px;padding:4px 10px;margin-right:4px" ' +
-            'onclick="FoodDB.verifyEntry(\'' + d.id + '\')">✅ Verify</button>' +
+            'data-approve="' + d.id + '" ' +
+            'onclick="FoodDB.verifyEntry(\'' + d.id + '\')">✅ Approve</button>' +
           '<button class="urm-edit-btn" style="margin-right:4px" onclick="FoodDB.openEditModal(\'' + d.id + '\')">✏ Edit</button>' +
           '<button class="urm-edit-btn" style="color:var(--red);border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.06)" ' +
-            'onclick="FoodDB.openDelModal(\'' + d.id + '\',\'' + _esc((d.name||'').replace(/'/g,"&#39;")) + '\')">🗑</button>' +
+            'onclick="FoodDB.rejectEntry(\'' + d.id + '\')">✗ Reject</button>' +
         '</td>' +
       '</tr>';
     }).join('');
@@ -2938,18 +2939,81 @@ const FoodDB = (function () {
   function subNextPage()  { _subPage++; _renderSub(); }
   function subPrevPage()  { if (_subPage > 0) { _subPage--; _renderSub(); } }
 
-  /* ── Verify a submission ── */
+  /* ── Approve a submission → POST to Malawi Nutrient API, then mark verified ── */
+  const MALAWI_API = 'https://malawunutrient-api.edisontaimu9.workers.dev';
+
   async function verifyEntry(docId) {
     if (!db) return;
+    const d = _allDocs.find(x => x.id === docId);
+    if (!d) { showToast('Entry not found.', 'error'); return; }
+
+    // Disable the approve button to prevent double-submit
+    const btn = document.querySelector('[data-approve="' + docId + '"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Submitting…'; }
+
     try {
+      // ── 1. Build API payload — flat fields matching Worker's Supabase schema ──
+      const n = d.per100g || {};
+      const payload = {
+        product_name:   d.name,
+        brand:          d.brand        || null,
+        barcode:        d.barcode      || null,
+        serving_size_g: d.servingSize  ?? 100,
+        energy_kcal:    n.kcal         ?? null,
+        protein_g:      n.pro          ?? null,
+        carbs_g:        n.cho          ?? null,
+        fat_g:          n.fat          ?? null,
+        fiber_g:        n.fiber        ?? null,
+        sugar_g:        n.sugar        ?? null,
+        sodium_mg:      n.sodium       ?? null,
+      };
+
+      // ── 2. POST to Malawi Nutrient API ──
+      const res = await fetch(MALAWI_API + '/packaged/submit', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+        signal:  AbortSignal.timeout(12000),
+      });
+
+      if (!res.ok) {
+        let errMsg = 'API error ' + res.status;
+        try { const body = await res.json(); errMsg = body.message || body.error || errMsg; } catch(_) {}
+        throw new Error(errMsg);
+      }
+
+      // ── 3. Mark verified in Firestore ──
       await db.collection('packaged_foods').doc(docId).set({
-        verified:  true,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        verified:    true,
+        approvedAt:  firebase.firestore.FieldValue.serverTimestamp(),
+        approvedBy:  (typeof _auth !== 'undefined' ? _auth.currentUser?.email : null) || 'admin',
+        updatedAt:   firebase.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
-      const d = _allDocs.find(x => x.id === docId);
-      showToast('✅ Verified: ' + (d?.name || docId), 'success');
+
+      showToast('✅ Approved & published: ' + d.name, 'success');
+
     } catch (e) {
-      showToast('Verify failed: ' + e.message, 'error');
+      console.error('[FoodDB] verifyEntry:', e);
+      showToast('✕ Approve failed: ' + e.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '✅ Approve'; }
+    }
+  }
+
+  /* ── Reject a submission → delete from Firestore ── */
+  async function rejectEntry(docId) {
+    if (!db) return;
+    const d = _allDocs.find(x => x.id === docId);
+    if (!d) { showToast('Entry not found.', 'error'); return; }
+
+    // Confirm before permanent delete
+    if (!confirm('Reject and delete "' + (d.name || docId) + '"? This cannot be undone.')) return;
+
+    try {
+      await db.collection('packaged_foods').doc(docId).delete();
+      showToast('🗑 Rejected: ' + (d.name || docId), 'success');
+    } catch (e) {
+      console.error('[FoodDB] rejectEntry:', e);
+      showToast('✕ Reject failed: ' + e.message, 'error');
     }
   }
 
@@ -3320,7 +3384,7 @@ const FoodDB = (function () {
     onSubSearch, subNextPage, subPrevPage,
     openAddModal, openEditModal, closeModal,
     openDelModal, closeDelModal,
-    saveEntry, confirmDelete, verifyEntry,
+    saveEntry, confirmDelete, verifyEntry, rejectEntry,
     importByBarcode,
   };
 })();
