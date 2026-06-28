@@ -499,16 +499,8 @@ function _attachFirestoreListeners() {
     }, err => console.warn('[Admin] stats listener error:', err));
 
   // ── 6. PACKAGED FOODS — count listener for KPI badges ──────────
-  // Does NOT load all documents — only the live count badge and KPI strip.
-  // The full table is loaded lazily when the tab opens (FoodDB.init).
-  try {
-    db.collection('packaged_foods').onSnapshot(snap => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      FoodDB._allDocs = docs;
-      FoodDB._updateKPIs();
-      _set('nb-fooddb', docs.length || '');
-    }, err => console.warn('[Admin] packaged_foods listener error:', err));
-  } catch(e) {}
+  // packaged_foods are now loaded via Malawi Nutrient API in FoodDB.init()
+  // No Firestore listener needed for this collection.
 
   // Connection watchdog: if no listener fires within 12s, show error (no fallback)
   setTimeout(() => {
@@ -2843,13 +2835,49 @@ const FoodDB = (function () {
   }
 
   /* ── Init — called when tab opens ── */
-  function init() {
+  async function init() {
     _page    = 0;
     _subPage = 0;
-    _applyFilters();
-    _applySubFilters();
-    // Default to submissions panel so pending items are front-and-center
     switchPanel('submissions');
+
+    // Load from Malawi Nutrient API
+    try {
+      const res  = await fetch(MALAWI_API + '/packaged/all', { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) throw new Error('API ' + res.status);
+      const json = await res.json();
+      // Normalise API rows → internal shape (per100g map + verified flag)
+      _allDocs = (Array.isArray(json) ? json : json.data || []).map(r => ({
+        id:           String(r.id),
+        name:         r.product_name,
+        brand:        r.brand         || null,
+        barcode:      r.barcode       || null,
+        category:     r.category      || 'Packaged',
+        country:      r.country       || 'MW',
+        servingSize:  r.serving_size_g ?? null,
+        image:        r.image         || null,
+        verified:     r.status === 'approved',
+        submittedBy:  r.submitted_by  || null,
+        nameLower:    (r.product_name || '').toLowerCase(),
+        per100g: {
+          kcal:   r.energy_kcal ?? null,
+          pro:    r.protein_g   ?? null,
+          cho:    r.carbs_g     ?? null,
+          fat:    r.fat_g       ?? null,
+          fiber:  r.fiber_g     ?? null,
+          sugar:  r.sugar_g     ?? null,
+          sodium: r.sodium_mg   ?? null,
+        },
+      }));
+      FoodDB._allDocs = _allDocs;
+      _updateKPIs();
+      _applyFilters();
+      _applySubFilters();
+      _render();
+      _renderSub();
+    } catch (e) {
+      console.error('[FoodDB] init fetch:', e);
+      showToast('⚠ Could not load packaged foods: ' + e.message, 'error');
+    }
   }
 
   /* ── KPI strip ── */
@@ -2982,13 +3010,11 @@ const FoodDB = (function () {
         throw new Error(errMsg);
       }
 
-      // ── 3. Mark verified in Firestore ──
-      await db.collection('packaged_foods').doc(docId).set({
-        verified:    true,
-        approvedAt:  firebase.firestore.FieldValue.serverTimestamp(),
-        approvedBy:  (typeof _auth !== 'undefined' ? _auth.currentUser?.email : null) || 'admin',
-        updatedAt:   firebase.firestore.FieldValue.serverTimestamp(),
-      }, { merge: true });
+      // ── 3. Update local state (API is source of truth now) ──
+      const idx = _allDocs.findIndex(x => x.id === docId);
+      if (idx !== -1) _allDocs[idx].verified = true;
+      _updateKPIs();
+      _renderSub();
 
       showToast('✅ Approved & published: ' + d.name, 'success');
 
@@ -3009,7 +3035,14 @@ const FoodDB = (function () {
     if (!confirm('Reject and delete "' + (d.name || docId) + '"? This cannot be undone.')) return;
 
     try {
-      await db.collection('packaged_foods').doc(docId).delete();
+      const res = await fetch(MALAWI_API + '/packaged/' + docId, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Delete failed'); }
+      _allDocs = _allDocs.filter(x => x.id !== docId);
+      _updateKPIs();
+      _renderSub();
       showToast('🗑 Rejected: ' + (d.name || docId), 'success');
     } catch (e) {
       console.error('[FoodDB] rejectEntry:', e);
@@ -3249,32 +3282,55 @@ const FoodDB = (function () {
     const err = _validate(data);
     if (err) { if (errEl) errEl.textContent = '⚠ ' + err; return; }
 
-    if (!db) { if (errEl) errEl.textContent = '✕ Firestore not connected.'; return; }
-
     btn.disabled = true;
     btn.textContent = 'Saving…';
 
     try {
-      const ts = firebase.firestore.FieldValue.serverTimestamp();
+      const n = data.per100g || {};
+      const payload = {
+        product_name:   data.name,
+        brand:          data.brand          || null,
+        barcode:        data.barcode        || null,
+        serving_size_g: data.servingSize    ?? 100,
+        energy_kcal:    n.kcal              ?? null,
+        protein_g:      n.pro               ?? null,
+        carbs_g:        n.cho               ?? null,
+        fat_g:          n.fat               ?? null,
+        fiber_g:        n.fiber             ?? null,
+        sugar_g:        n.sugar             ?? null,
+        sodium_mg:      n.sodium            ?? null,
+        status:         data.verified ? 'approved' : 'pending',
+      };
+
       if (_editDocId) {
-        // Update
-        await db.collection('packaged_foods').doc(_editDocId).set({
-          ...data, updatedAt: ts,
-        }, { merge: true });
+        // UPDATE via PATCH /packaged/:id
+        const res = await fetch(MALAWI_API + '/packaged/' + _editDocId, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload),
+          signal:  AbortSignal.timeout(12000),
+        });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Update failed'); }
+        // Update local state
+        const idx = _allDocs.findIndex(x => x.id === _editDocId);
+        if (idx !== -1) _allDocs[idx] = { ..._allDocs[idx], ...data, id: _editDocId };
         showToast('✓ Entry updated: ' + data.name, 'success');
       } else {
-        // Add
-        const user = typeof _auth !== 'undefined' ? _auth.currentUser : null;
-        await db.collection('packaged_foods').add({
-          ...data,
-          addedBy:  user?.email || 'admin',
-          addedAt:  ts,
-          updatedAt: ts,
+        // ADD via POST /packaged/submit (status=pending, admin adds directly as approved)
+        payload.status = 'approved';
+        const res = await fetch(MALAWI_API + '/packaged/submit', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload),
+          signal:  AbortSignal.timeout(12000),
         });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Add failed'); }
+        const saved = await res.json();
+        _allDocs.unshift({ ...data, id: String(saved.id || Date.now()), verified: true });
         showToast('✓ Entry added: ' + data.name, 'success');
       }
       closeModal();
-      // _allDocs will refresh via onSnapshot; re-render immediately from local state
+      _updateKPIs();
       _render();
     } catch (e) {
       if (errEl) errEl.textContent = '✕ Save failed: ' + e.message;
@@ -3287,9 +3343,16 @@ const FoodDB = (function () {
 
   /* ── Delete ── */
   async function confirmDelete() {
-    if (!_delDocId || !db) return;
+    if (!_delDocId) return;
     try {
-      await db.collection('packaged_foods').doc(_delDocId).delete();
+      const res = await fetch(MALAWI_API + '/packaged/' + _delDocId, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Delete failed'); }
+      _allDocs = _allDocs.filter(x => x.id !== _delDocId);
+      _updateKPIs();
+      _render();
       showToast('🗑 Deleted: ' + _delDocName, 'success');
       closeDelModal();
     } catch (e) {
@@ -3308,13 +3371,11 @@ const FoodDB = (function () {
     if (log) log.textContent = '⏳ Querying Open Food Facts…';
 
     try {
-      // First check if barcode already exists in our DB
-      if (db) {
-        const snap = await db.collection('packaged_foods').where('barcode', '==', bc).limit(1).get();
-        if (!snap.empty) {
-          if (log) log.innerHTML = '⚠ Barcode <strong>' + bc + '</strong> already exists in the database.';
-          return;
-        }
+      // First check if barcode already exists in our local cache
+      const exists = _allDocs.some(x => x.barcode === bc);
+      if (exists) {
+        if (log) log.innerHTML = '⚠ Barcode <strong>' + bc + '</strong> already exists in the database.';
+        return;
       }
 
       // Query Open Food Facts (free, no API key)
