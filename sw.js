@@ -6,9 +6,9 @@ const offlineFallbackPage = './';
 /* Core assets to pre-cache on install — orientation_manager included */
 const PRECACHE_ASSETS = [
   './',
-  './orientation_manager.js',
-  './styles.css',
-  './app.js',
+  './js/orientation_manager.js',
+  './assets/css/styles.css',
+  './js/app.js',
 ];
 
 self.addEventListener('message', (event) => {
