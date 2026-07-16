@@ -2792,15 +2792,16 @@ function renderOfflineTab() {
 
 /* ═══════════════════════════════════════════════════════════
    FOOD DATABASE ADMIN MODULE
-   CRUD for Firestore `packaged_foods` collection.
+   Reads: GET /packaged from the Chakudya Nutrition Registry API (Cloudflare
+   Worker + Supabase). Writes (approve/reject/edit/delete) require the
+   Chakudya ADMIN_API_KEY as a Bearer token — see _getAdminKey() below.
+   The admin key is entered once and cached in this browser's localStorage;
+   it is never sent anywhere except this Worker's own Authorization header.
 
-   Schema per document:
-     name, nameLower, brand, barcode, category, country,
-     per100g: { kcal, kj, pro, cho, fat, fiber, sugar, sodium },
-     servingSize, servingLabel, image, verified,
-     submittedBy, addedBy, addedAt, updatedAt
-
-   All reads / writes go directly through the shared `db` instance.
+   Schema per row (Supabase `packaged_foods` table, snake_case):
+     product_name, brand, barcode, category, country,
+     energy_kcal, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg,
+     serving_size, status ('pending' | 'approved'), submitted_at
 ═══════════════════════════════════════════════════════════ */
 const FoodDB = (function () {
   'use strict';
@@ -2840,9 +2841,9 @@ const FoodDB = (function () {
     _subPage = 0;
     switchPanel('submissions');
 
-    // Load from Malawi Nutrient API
+    // Load from Chakudya Nutrition Registry API
     try {
-      const res  = await fetch(MALAWI_API + '/packaged/all', { signal: AbortSignal.timeout(10000) });
+      const res  = await fetch(MALAWI_API + '/packaged?limit=100', { signal: AbortSignal.timeout(10000) });
       if (!res.ok) throw new Error('API ' + res.status);
       const json = await res.json();
       // Normalise API rows → internal shape (per100g map + verified flag)
@@ -2967,8 +2968,24 @@ const FoodDB = (function () {
   function subNextPage()  { _subPage++; _renderSub(); }
   function subPrevPage()  { if (_subPage > 0) { _subPage--; _renderSub(); } }
 
-  /* ── Approve a submission → POST to Malawi Nutrient API, then mark verified ── */
-  const MALAWI_API = 'https://malawunutrient-api.edisontaimu9.workers.dev';
+  /* ── Approve a submission → PATCH the existing row's status on the Chakudya API ── */
+  const MALAWI_API = 'https://chakudya-api.edisontaimu9.workers.dev';
+
+  /* Chakudya's PATCH/PUT/DELETE routes require Authorization: Bearer <ADMIN_API_KEY>.
+     POST /packaged/submit is public and needs no key. The key is asked for once
+     and cached in this browser's localStorage — it's only ever sent to this
+     Worker's own Authorization header, never anywhere else. */
+  function _getAdminKey() {
+    let key = localStorage.getItem('chakudya_admin_key');
+    if (!key) {
+      key = prompt('Enter the Chakudya API admin key (saved locally on this device only):');
+      if (key) localStorage.setItem('chakudya_admin_key', key.trim());
+    }
+    return (key || '').trim();
+  }
+  function _adminHeaders() {
+    return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _getAdminKey() };
+  }
 
   async function verifyEntry(docId) {
     if (!db) return;
@@ -2980,27 +2997,14 @@ const FoodDB = (function () {
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Submitting…'; }
 
     try {
-      // ── 1. Build API payload — flat fields matching Worker's Supabase schema ──
-      const n = d.per100g || {};
-      const payload = {
-        product_name:   d.name,
-        brand:          d.brand        || null,
-        barcode:        d.barcode      || null,
-        serving_size_g: d.servingSize  ?? 100,
-        energy_kcal:    n.kcal         ?? null,
-        protein_g:      n.pro          ?? null,
-        carbs_g:        n.cho          ?? null,
-        fat_g:          n.fat          ?? null,
-        fiber_g:        n.fiber        ?? null,
-        sugar_g:        n.sugar        ?? null,
-        sodium_mg:      n.sodium       ?? null,
-      };
-
-      // ── 2. POST to Malawi Nutrient API ──
-      const res = await fetch(MALAWI_API + '/packaged/submit', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload),
+      // Approve the EXISTING row in place — PATCH status → 'approved'.
+      // (This used to re-POST to /packaged/submit, which always inserts a
+      // NEW row with status='pending' server-side regardless of payload —
+      // so it never actually approved anything, just created duplicates.)
+      const res = await fetch(MALAWI_API + '/packaged/' + docId, {
+        method:  'PATCH',
+        headers: _adminHeaders(),
+        body:    JSON.stringify({ status: 'approved' }),
         signal:  AbortSignal.timeout(12000),
       });
 
@@ -3010,7 +3014,7 @@ const FoodDB = (function () {
         throw new Error(errMsg);
       }
 
-      // ── 3. Update local state (API is source of truth now) ──
+      // ── Update local state (API is source of truth now) ──
       const idx = _allDocs.findIndex(x => x.id === docId);
       if (idx !== -1) _allDocs[idx].verified = true;
       _updateKPIs();
@@ -3037,6 +3041,7 @@ const FoodDB = (function () {
     try {
       const res = await fetch(MALAWI_API + '/packaged/' + docId, {
         method: 'DELETE',
+        headers: _adminHeaders(),
         signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Delete failed'); }
@@ -3306,7 +3311,7 @@ const FoodDB = (function () {
         // UPDATE via PATCH /packaged/:id
         const res = await fetch(MALAWI_API + '/packaged/' + _editDocId, {
           method:  'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: _adminHeaders(),
           body:    JSON.stringify(payload),
           signal:  AbortSignal.timeout(12000),
         });
@@ -3316,8 +3321,10 @@ const FoodDB = (function () {
         if (idx !== -1) _allDocs[idx] = { ..._allDocs[idx], ...data, id: _editDocId };
         showToast('✓ Entry updated: ' + data.name, 'success');
       } else {
-        // ADD via POST /packaged/submit (status=pending, admin adds directly as approved)
-        payload.status = 'approved';
+        // ADD via POST /packaged/submit — this route is public and always
+        // inserts as status='pending' server-side no matter what's sent, so
+        // if the admin ticked "verified" we follow up with an authenticated
+        // PATCH to actually approve the row that was just created.
         const res = await fetch(MALAWI_API + '/packaged/submit', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3326,8 +3333,26 @@ const FoodDB = (function () {
         });
         if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Add failed'); }
         const saved = await res.json();
-        _allDocs.unshift({ ...data, id: String(saved.id || Date.now()), verified: true });
-        showToast('✓ Entry added: ' + data.name, 'success');
+        const newId = saved?.data?.id != null ? String(saved.data.id) : null;
+
+        let approved = false;
+        if (newId && data.verified) {
+          const approveRes = await fetch(MALAWI_API + '/packaged/' + newId, {
+            method:  'PATCH',
+            headers: _adminHeaders(),
+            body:    JSON.stringify({ status: 'approved' }),
+            signal:  AbortSignal.timeout(12000),
+          });
+          approved = approveRes.ok;
+          if (!approveRes.ok) console.warn('[FoodDB] auto-approve after add failed:', approveRes.status);
+        }
+
+        _allDocs.unshift({ ...data, id: newId || String(Date.now()), verified: approved });
+        showToast(
+          approved ? '✓ Entry added and approved: ' + data.name
+                   : '✓ Entry submitted as pending: ' + data.name,
+          'success'
+        );
       }
       closeModal();
       _updateKPIs();
@@ -3347,6 +3372,7 @@ const FoodDB = (function () {
     try {
       const res = await fetch(MALAWI_API + '/packaged/' + _delDocId, {
         method: 'DELETE',
+        headers: _adminHeaders(),
         signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Delete failed'); }
