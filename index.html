@@ -180,6 +180,8 @@
       <div class="sb-clock-date" id="sb-clock-date">MON 01</div>
     </div>
     <div class="status-sep"></div>
+    <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleQuickTheme()" title="Toggle light / dark theme">🌙</button>
+    <div class="status-sep"></div>
     <button class="btn-install" id="btn-pwa-install" onclick="triggerPWAInstall()" style="display:none">⬇ Install</button>
     <div class="status-sep" id="sep-install" style="display:none"></div>
     <button class="btn-logout" onclick="doLogout()">Logout</button>
@@ -446,6 +448,7 @@
                 <span class="stg-lbl">Theme</span>
                 <div class="chip-group" id="sg-theme">
                   <div class="chip active" data-val="dark"   onclick="setSetting('theme','dark',this)">🌙 Dark</div>
+                  <div class="chip"        data-val="light"  onclick="setSetting('theme','light',this)">☀️ Light</div>
                   <div class="chip"        data-val="amoled" onclick="setSetting('theme','amoled',this)">⬛ AMOLED</div>
                   <div class="chip"        data-val="hc"     onclick="setSetting('theme','hc',this)">♿ HC</div>
                   <div class="chip"        data-val="auto"   onclick="setSetting('theme','auto',this)">💻 Auto</div>

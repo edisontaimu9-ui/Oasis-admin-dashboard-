@@ -1641,6 +1641,40 @@ function applyAppearance() {
   document.body.classList.toggle('compact', !!compact);
   const compToggle = document.getElementById('toggle-compact');
   if (compToggle) compToggle.checked = !!compact;
+
+  // Quick toggle button icon reflects the resolved theme
+  const toggleBtn = document.getElementById('theme-toggle-btn');
+  if (toggleBtn) {
+    toggleBtn.textContent = resolvedTheme === 'light' ? '☀️' : '🌙';
+    toggleBtn.title = resolvedTheme === 'light'
+      ? 'Switch to dark theme'
+      : 'Switch to light theme';
+  }
+}
+
+/* ── Quick light/dark toggle (header button) ──
+   Flips between light and dark regardless of the current theme
+   (amoled/hc collapse to dark for the purpose of this toggle). */
+function toggleQuickTheme() {
+  const resolvedTheme = APPEARANCE.theme === 'auto'
+    ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+    : APPEARANCE.theme;
+  const next = resolvedTheme === 'light' ? 'dark' : 'light';
+
+  // Briefly enable smooth transitions for a polished flip, then remove
+  // so other unrelated style changes don't get an unwanted animation.
+  document.body.classList.add('theme-transition');
+  setTimeout(() => document.body.classList.remove('theme-transition'), 300);
+
+  APPEARANCE.theme = next;
+  applyAppearance();
+  _saveAppearance();
+
+  // Keep the Settings page chip group in sync if it's open/rendered
+  const group = document.getElementById('sg-theme');
+  if (group) {
+    group.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.val === next));
+  }
 }
 
 /* ── setSetting — called by all controls ── */

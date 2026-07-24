@@ -29,8 +29,26 @@
 body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #1e3050; border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--teal); }
+
+/* Smooth theme transitions — applied only while switching to avoid
+   janky transitions on first paint / other unrelated style changes */
+body.theme-transition,
+body.theme-transition * {
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease !important;
+}
+
+/* ── Quick theme toggle (header) ── */
+.theme-toggle-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text); cursor: pointer; font-size: 15px; line-height: 1;
+  transition: background .15s, transform .15s, border-color .15s;
+}
+.theme-toggle-btn:hover { border-color: var(--teal); transform: translateY(-1px); }
+.theme-toggle-btn:active { transform: scale(0.92); }
 
 /* ── LOGIN / REGISTER SCREENS ── */
 #login-screen,
