@@ -138,7 +138,7 @@ body.theme-transition * {
 #login-err { font-family: var(--mono); font-size: 10px; color: var(--red); margin-top: 10px; text-align: center; min-height: 16px; }
 
 /* ── APP SHELL ── */
-#app { display: none; flex-direction: column; min-height: 100vh; }
+#app { display: flex; flex-direction: column; min-height: 100vh; }
 
 /* BAR 1 — Brand */
 .header {
