@@ -1,4 +1,4 @@
-import { reactive } from '../vue.js';
+import { reactive } from './vue.js';
 
 export const errorLog = reactive({ entries: [] }); // { level, msg, source, ts }
 
