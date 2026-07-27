@@ -14,29 +14,23 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Barlow:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Nunito:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<!-- Firebase SDK (compat — same version/project as the main Oasis app) -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-<!-- Appwrite SDK — required by the Library panel (converts in a later pass) -->
 <script src="https://cdn.jsdelivr.net/npm/appwrite@15/dist/iife/sdk.js"></script>
-<!-- Chart.js — used by Overview/Analytics panels (converts in a later pass) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <link rel="stylesheet" href="assets/css/styles.css">
-
-<!-- Orientation & viewport manager — unchanged, not Vue-specific -->
 <script src="js/orientation_manager.js"></script>
 </head>
 <body>
 
-<div id="crash-log" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#300;color:#fff;font:12px monospace;padding:8px;white-space:pre-wrap;display:none;"></div>
+<div id="crash-log" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#001a33;color:#0ff;font:10px monospace;padding:8px;white-space:pre-wrap;max-height:45vh;overflow:auto;"></div>
 <script>
   function showCrash(msg) {
     var el = document.getElementById('crash-log');
-    el.style.display = 'block';
     el.textContent += msg + '\n\n';
   }
   window.addEventListener('error', function(e) {
@@ -45,13 +39,29 @@
   window.addEventListener('unhandledrejection', function(e) {
     showCrash('PROMISE REJECTION: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
   });
+  setTimeout(function() {
+    var sels = ['#app','.dashboard-body','.sidebar','.top-tab-nav','.bottom-tab-nav','.content-area','#login-screen'];
+    var out = '--- LAYOUT DUMP ---\n';
+    sels.forEach(function(sel) {
+      var el = document.querySelector(sel);
+      if (!el) { out += sel + ': NOT IN DOM\n'; return; }
+      var cs = getComputedStyle(el);
+      var r = el.getBoundingClientRect();
+      out += sel + ': display=' + cs.display + ' position=' + cs.position +
+             ' top=' + Math.round(r.top) + ' bottom=' + Math.round(r.bottom) +
+             ' height=' + Math.round(r.height) + ' width=' + Math.round(r.width) +
+             ' transform=' + cs.transform + '\n';
+    });
+    var vh = getComputedStyle(document.documentElement).getPropertyValue('--vh');
+    out += 'html --vh = ' + vh + '\n';
+    out += 'window.innerHeight = ' + window.innerHeight + '\n';
+    showCrash(out);
+  }, 2500);
 </script>
 
 <div id="app-root">
-  <!-- Vue mounts here — js/main.js replaces this with LoginScreen or the dashboard -->
 </div>
 
-<!-- Vue app entry (native ES modules — no build step required) -->
 <script type="module" src="js/main.js"></script>
 
 </body>
