@@ -1,6 +1,6 @@
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js');
 
-const CACHE = 'nutritrack-admin-pwa-v1';
+const CACHE = 'oasis-admin-pwa-v2';
 const offlineFallbackPage = './';
 
 /* Core assets to pre-cache on install — orientation_manager included */
@@ -8,7 +8,7 @@ const PRECACHE_ASSETS = [
   './',
   './js/orientation_manager.js',
   './assets/css/styles.css',
-  './js/app.js',
+  './js/App.js',
 ];
 
 self.addEventListener('message', (event) => {
