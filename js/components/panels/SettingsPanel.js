@@ -58,6 +58,14 @@ export default {
       if (!p) return {};
       return { background: p.bg, backgroundImage: p.overlay, backgroundSize: p.size || 'auto', backgroundPosition: p.pos || '0 0' };
     },
+    toggleLandscape(checked) {
+      this.allowLandscape = checked;
+      if (window.OasisOrientation) {
+        if (checked) window.OasisOrientation.enableLandscape();
+        else window.OasisOrientation.disableLandscape();
+      }
+      showToast(checked ? 'Landscape rotation enabled' : 'Locked to portrait', 'success');
+    },
     async changePassword() {
       this.pwdMsgColor = 'var(--red)';
       if (!this.pwdCurrent || !this.pwdNew || !this.pwdConfirm) { this.pwdMsg = '⚠ All fields are required.'; return; }
@@ -176,6 +184,17 @@ export default {
                 <button class="pwd-save-btn" @click="changePassword">SAVE PASSWORD →</button>
                 <span class="pwd-msg" :style="{color: pwdMsgColor}">{{ pwdMsg }}</span>
               </div>
+            </div>
+          </div>
+
+          <div class="stg-card" style="margin-bottom:12px">
+            <div class="stg-card-hdr">📱 Orientation</div>
+            <div class="stg-row" style="border-bottom:none">
+              <span class="stg-lbl">Allow Landscape</span>
+              <label class="toggle-switch">
+                <input type="checkbox" :checked="allowLandscape" @change="toggleLandscape($event.target.checked)">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
             </div>
           </div>
 
