@@ -32,6 +32,21 @@
 </head>
 <body>
 
+<div id="crash-log" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#300;color:#fff;font:12px monospace;padding:8px;white-space:pre-wrap;display:none;"></div>
+<script>
+  function showCrash(msg) {
+    var el = document.getElementById('crash-log');
+    el.style.display = 'block';
+    el.textContent += msg + '\n\n';
+  }
+  window.addEventListener('error', function(e) {
+    showCrash('ERROR: ' + e.message + '\nFile: ' + (e.filename||'?') + ':' + e.lineno);
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    showCrash('PROMISE REJECTION: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+</script>
+
 <div id="app-root">
   <!-- Vue mounts here — js/main.js replaces this with LoginScreen or the dashboard -->
 </div>
