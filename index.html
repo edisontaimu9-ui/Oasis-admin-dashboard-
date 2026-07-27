@@ -27,38 +27,6 @@
 </head>
 <body>
 
-<div id="crash-log" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#001a33;color:#0ff;font:10px monospace;padding:8px;white-space:pre-wrap;max-height:45vh;overflow:auto;"></div>
-<script>
-  function showCrash(msg) {
-    var el = document.getElementById('crash-log');
-    el.textContent += msg + '\n\n';
-  }
-  window.addEventListener('error', function(e) {
-    showCrash('ERROR: ' + e.message + '\nFile: ' + (e.filename||'?') + ':' + e.lineno);
-  });
-  window.addEventListener('unhandledrejection', function(e) {
-    showCrash('PROMISE REJECTION: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
-  });
-  setTimeout(function() {
-    var sels = ['#app','.dashboard-body','.sidebar','.top-tab-nav','.bottom-tab-nav','.content-area','#login-screen'];
-    var out = '--- LAYOUT DUMP ---\n';
-    sels.forEach(function(sel) {
-      var el = document.querySelector(sel);
-      if (!el) { out += sel + ': NOT IN DOM\n'; return; }
-      var cs = getComputedStyle(el);
-      var r = el.getBoundingClientRect();
-      out += sel + ': display=' + cs.display + ' position=' + cs.position +
-             ' top=' + Math.round(r.top) + ' bottom=' + Math.round(r.bottom) +
-             ' height=' + Math.round(r.height) + ' width=' + Math.round(r.width) +
-             ' transform=' + cs.transform + '\n';
-    });
-    var vh = getComputedStyle(document.documentElement).getPropertyValue('--vh');
-    out += 'html --vh = ' + vh + '\n';
-    out += 'window.innerHeight = ' + window.innerHeight + '\n';
-    showCrash(out);
-  }, 2500);
-</script>
-
 <div id="app-root">
 </div>
 
