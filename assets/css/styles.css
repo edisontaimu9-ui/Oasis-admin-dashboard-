@@ -2025,3 +2025,34 @@ select:focus {
   margin: 16px 0;
 }
 
+
+/* ── PWA Install Banner ── */
+.install-banner {
+  position: fixed;
+  left: 12px; right: 12px;
+  bottom: calc(var(--bottomnav-h, 0px) + 12px + env(safe-area-inset-bottom, 0px));
+  z-index: 500;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface);
+  border: 1px solid rgba(29,233,212,0.35);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  max-width: 480px;
+  margin: 0 auto;
+}
+.install-banner-icon { font-size: 22px; flex-shrink: 0; }
+.install-banner-text { flex: 1; min-width: 0; }
+.install-banner-title { font-weight: 700; font-size: 13px; color: var(--text); }
+.install-banner-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.install-banner-btn {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(29,233,212,0.18), rgba(29,233,212,0.08));
+  border: 1px solid rgba(29,233,212,0.4);
+  color: var(--teal); font-family: var(--mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 1px; padding: 8px 12px; border-radius: 8px; cursor: pointer;
+}
+.install-banner-close {
+  flex-shrink: 0; background: none; border: none; color: var(--text-muted);
+  font-size: 14px; cursor: pointer; padding: 4px;
+}

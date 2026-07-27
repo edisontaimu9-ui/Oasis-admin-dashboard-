@@ -1,5 +1,6 @@
 import { store } from './state.js';
 import ToastHost from './components/Toast.js';
+import InstallBanner from './components/InstallBanner.js';
 import LoginScreen from './components/LoginScreen.js';
 import Sidebar from './components/Sidebar.js';
 import TopTabNav from './components/TopTabNav.js';
@@ -24,7 +25,7 @@ const PLACEHOLDERS = {};
 export default {
   name: 'App',
   components: {
-    ToastHost, LoginScreen, Sidebar, TopTabNav, BottomTabNav,
+    ToastHost, InstallBanner, LoginScreen, Sidebar, TopTabNav, BottomTabNav,
     HomePanel, OverviewPanel, AnalyticsPanel, OnlinePanel, SessionsPanel, FeedbackPanel,
     UsersPanel, ErrorLogPanel, OfflinePanel, LibraryPanel, FoodDBPanel, SettingsPanel,
     PlaceholderPanel,
@@ -38,6 +39,7 @@ export default {
   },
   template: `
     <ToastHost />
+    <InstallBanner />
     <LoginScreen v-if="!store.currentUser" />
     <div id="app" v-else>
       <TopTabNav />
