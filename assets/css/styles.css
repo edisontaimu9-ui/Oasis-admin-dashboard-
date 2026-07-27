@@ -20,8 +20,8 @@
   --mono:      'JetBrains Mono', monospace;
   --sans:      'Space Grotesk', sans-serif;
   --sidebar-w: 228px;
-  --header-h:  48px;
-  --statusbar-h: 36px;
+  --header-h:  0px;
+  --statusbar-h: 0px;
   --tabnav-h:  44px;
   --bottomnav-h: 56px;
 }
