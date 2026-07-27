@@ -14,7 +14,7 @@ export default {
   },
   template: `
     <div id="login-screen">
-      <div class="login-card">
+      <div class="login-box">
         <div class="login-title">Oasis Admin</div>
         <input type="email" id="login-email" placeholder="admin@example.com"
                autocomplete="email" v-model="email" @keydown.enter="submit">
